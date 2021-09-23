@@ -1,0 +1,533 @@
+syntax = "proto3";
+package gcu_main_pmm.protobuf;
+//20210905 V0.1.1
+
+//基本数据类型
+option go_package="./protoc/fsmohp";
+
+//用这个定义作为bool，可以区别发送方是否填值
+message BoolEnum {
+	bool value= 1;
+}
+
+//用这个定义作为int32，可以区别发送方是否填值
+message Int32Value {
+	int32 value = 1;
+}
+
+//用这个定义作为uint32，可以区别发送方是否填值
+message Uint32Value {
+	uint32 value = 1;
+}
+
+//用这个定义作为float，可以区别发送方是否填值
+message FloatValue {
+	float value = 1;
+}
+
+//用这个定义作为double，可以区别发送方是否填值
+message DoubleValue {
+	double value = 1;
+}
+
+//用这个定义作为UUID，可以区别发送方是否填值
+message UUIDValue {
+	uint64 value0 = 1;
+	uint64 value1 = 2;
+}
+
+
+//秒级时间戳
+message DateTimeShort {
+	uint32 Time = 0x01;	//可记录至2106-2-7 14:28:15
+}
+
+//毫秒时间戳
+message DateTimeLong {
+	uint64 Time = 0x01;	//Unix标准时间戳
+}
+
+//本协议专用枚举及消息单体
+
+//PMM故障告警类型枚举
+enum PMMFaultStopEnum {
+	DefaultPMMFault = 0x00;			//	缺省值
+	//监控加工的故障
+	HvdcStartFail = 0x01;			//	充电模块开机超时 *
+	HvdcGroupFail = 0x02;			//	模块响应配组失败 *
+	HvdcOffline = 0x03;				//	模块离线 *
+
+	//40帧故障告警状态
+	OutOverVolt = 0x10;				//	输出过压 *
+	OverTemp = 0x11;				//	过温 *
+	FanFault = 0x12;				//	风扇故障 *
+	EEPROMFault = 0x13;				//	模块EEPROM故障（校准失败）
+	CANErr = 0x14;					//	模块CAN错误状态
+	ACLowVolt = 0x15;				//	模块交流欠压告警 *
+	ACLackPhase = 0x16;				//	模块交流缺相告警 *
+	SerUnblncdCurr = 0x17;			//	模块严重不均流 *
+	IDRepeat = 0x18;				//	模块ID重复 *
+	ACOverVolt = 0x19;				//	模块交流过压 *
+	PFCProtect = 0x1a;				//	模块PFC保护 *
+	SlightUnblncdCurr = 0x1b;		//	模块轻微不均流
+	DischgAlarm = 0x1c;				//	模块放电电路故障 *
+	SCFault = 0x1d;					//	模块短路锁死告警 *
+	InnerComAlarm = 0x1e;			//	模块内部通信异常告警
+
+	//43帧故障告警状态
+	ElectGridAbnor = 0x20;			//	电网异常检测预告警
+	ModRelayFault = 0x21;			//	模块继电器故障（安规故障）
+	OutCaplifeWarn = 0x22;			//	输出电解电容寿命预告警 *
+	ACCut = 0x23;					//	ACCUT输入掉电告警 *
+	DCOCP = 0x24;					//	DCOCP
+	BoardcorrectFail = 0x25;		//	单板校准失败
+	DiodeTempWarn = 0x26;			//	DC 二极管散热器温度预告警
+	MOSTempWarn = 0x27;				//	DC MOS管散热器温度预告警
+	PFCTempWarn = 0x28;				//	PFC散热器温度预告警
+}
+
+//VCI故障状态枚举
+enum VCIFaultStopEnum {
+	DefaultVCIFault = 0x00;			//	缺省值
+	ShortCircuitFault = 0x01;		//	车辆输出短路故障
+	BMSCellOverVolt = 0x02;			//	主动防护，电池单体过压
+	BMSPackOverVolt = 0x03;			//	主动防护，电池包过压
+	BMSPackOverCurr = 0x04;			//	主动防护，过流
+	BMSCellOverTemp = 0x05;			//	主动防护，过温
+	BMSCellLowTemp = 0x06;			//	主动防护，低温
+	BMSThermalRunaway = 0x07;		//	主动防护，热失控
+	BMSRelayShortCrit = 0x08;		//	主动防护，车的继电器粘连
+	BMSDataUpdateAbnormal = 0x09;	//	主动防护，数据异常
+	BMSOverCharge = 0x0a;			//	主动防护，过充保护
+	BMSAuxPowerAbnormal = 0x0b;		//	主动防护，辅助电源异常
+	BMSInnerCncterOpen = 0x0c;		//	主动防护，继电器开路
+
+	ChgerAuxPowerAbnormal = 0x20;	//	辅助电源异常
+	InsultVolAbnormal = 0x21;		//	绝缘检测电压异常
+	InsultTimeOut = 0x22;			//	绝缘检测超时
+	InsultWarn = 0x23;				//	绝缘检测告警
+	InsultAbnormal = 0x24;			//	绝缘检测异常
+	FSMOffline = 0x25;				//	消息中心离线
+	ElockAbnormal = 0x26;			//	电子锁异常
+	CC1VoltAbnormal = 0x27;			//	CC1电压异常
+	GunOutOverVolt = 0x28;			//	Gun输出过压
+	GunReserveConnect = 0x29;		//	枪头反接
+	FuseBreakFault = 0x2a;			//	熔断器故障
+	ChargeAbnormal = 0x2b;			//	充电机系统故障
+	
+	ChgGunOverTemp = 0x40;			//	枪头过温
+	OutRlyFrontVolHigh = 0x41;		//	输出接触器前级电压高
+	OutRlyFrontVolLow = 0x42;		//	输出接触器前级电压低
+	BatVolHigh = 0x43;				//	电池电压大于充电机最大电压
+	BatVolLow = 0x44;				//	电池电压小于充电机最小电压
+	BMSReportVolAbnormal = 0x45;	//	启动充电前直流输出接触器外侧电压与通信报文电池电压相差＞±5%
+	BatAllowVolLow = 0x46;			//	BMS最高允许电压小于充电机最小输出电压
+	OutOverCurr = 0x47;				//	输出过流
+	
+	BMSProtoVerUnMatch = 0x60;		//	BMS通信协议版本不匹配
+	BRMTimeout = 0x61;				//	BRM 报文接收超时
+	BRMAbnorma = 0x62;				//	BRM 报文数据项异常
+	BCPTimeout = 0x63;				//	BCP 报文接收超时
+	BCPAbnormal = 0x64;				//	BCP 报文数据项异常
+	BROTimeout = 0x65;				//	BRO 报文（0x00）接收超时
+	BROAATimeout = 0x66;			//	BRO 报文（0xAA）接收超时
+	BSMTimeout = 0x67;				//	BSM 报文接收超时
+	BSMAbnormal = 0x68;				//	BSM 报文数据项异常
+	BCLTimeout = 0x69;				//	BCL 报文接收超时
+	BCSTimeout = 0x6a;				//	BCS 报文接收超时
+	BSMCellVolLow = 0x6b;			//	BSM报文中单体动力蓄电池电压过低
+	BSMSOCHigh = 0x6c;				//	BSM报文中SOC过高
+	BSMSOCLow = 0x6d;				//	BSM报文中SOC过低
+	BSMPackOverCurr = 0x6e;			//	BSM报文中充电过流
+	BSMBatTempHigh = 0x6f;			//	BSM报文中动力蓄电池温度过高
+	BSMInsultAbnor = 0x70;			//	BSM报文中动力蓄电池绝缘状态异常
+	BSMContactorAbnor = 0x71;		//	BSM报文中连接器连接状态异常
+	BSTTimeout = 0x72;				//	BST报文接收超时
+	BSTMeetSOC = 0x73;				//	BST报达到SOC目标值
+	BSTMeetVol = 0x74;				//	BST报达到总电压设定值
+	BSTMeetCellVol = 0x75;			//	BST报达到单体电压设定值
+	BSTInsultFault = 0x76;			//	BST报BMS绝缘故障
+	BSTOutConnectOverTemp = 0x77;	//	BST报BMS输出连接器过温故障
+	BSTOutConnectAbnor = 0x78;		//	BST报BMS元件、输出连接器
+	BSTChgConnectAbnor = 0x79;		//	BST报BMS充电连接器故障
+	BSTBatOverTemp = 0x7a;			//	BST报BMS电池组温度过高故障
+	BSTHighVolRelayFault = 0x7b;	//	BST报BMS高压继电器故障
+	BSTCC2Fault = 0x7c;				//	BST报BMS检测点2电压检测故障
+	BSTOtherFault = 0x7d;			//	BST报BMS其他故障
+	BSTOverCurr = 0x7e;				//	BST报BMS电流过大
+	BSTVolAbno = 0x7f;				//	BST报BMS电压异常
+	
+	BSTCellVolHigh = 0x80;			//	BST报BSM报文中单体动力蓄电池电压过高
+	BSTNull = 0x81;					//	BST填充为0
+	BSDTimeout = 0x82;				//	BSD报文超时
+	BSMCurrDiff = 0x83;				//	输出电流与BCS报文电流不匹配
+	BSMVolDiff = 0x84;				//	输出电压与BCS报文电压不匹配
+	BMSDemandCurrHigh = 0x85;		//	车辆需求电流大于最高允许电流
+	BMSDemandVolHigh = 0x86;		//	车辆需求电流大于最高允许电压
+	
+	PreChgFail = 0x90;				//	预充阶段调压失败
+	DisChgFail = 0x91;				//	泄放失败
+	GunStateAbnor = 0x92;			//	控制导引异常
+	GunTempWarn = 0x93;				//	枪头过温告警
+	ChgBSTStop = 0x94;				//	BMS 故障终止
+	NoActiveCurr = 0x95;			//	无有效电流
+	SOCFull = 0x96;					//	SOC满中止
+	ChgForbidTimeOut = 0x97;		//	禁止充电超时
+}
+
+//接触器状态枚举
+enum ContactorStateEnum {
+	UnKown = 0x00;					//	未自检，未知状态缺省值
+	DriveFailure = 0x01;			//	故障，驱动失效
+	ContactorAdhesion = 0x02;		//	故障，触点粘连
+	ContactorStandby = 0x03;		//	可抢占，阵列接触器专用
+	ContactorLocked = 0x04;			//	已被抢占，不可操作
+	ContactorReady = 0x05;			//	已被抢占，可操作，未吸合
+	ContactorCharging = 0x06;		//	已被抢占，可操作，已吸合
+	Aggregation = 0x07;				//	汇聚模式，主接触器专用
+}
+
+//自检状态描述枚举
+enum SelfCheckType {
+	DefaultCheck = 0x00;			//	缺省值
+	Standby = 0x1;					//	已完成，状态可用
+	Checking = 0x2;					//	自检中，稍后上报
+	CheckFault = 0x3;				//	自检失败，自愈中
+}
+
+//订单类型枚举
+enum OrderTypeEnum {
+	DefaultOrderType = 0x00;		//	未知状态缺省值，非法
+	LocalFreeOrder = 0x01;			//	本地不计费订单
+	LocalChargeOrder = 0x02;		//	本地计费订单
+	CloudPlatformOrder = 0x03;		//	订单云参与鉴权或直接发起订单
+	DevicePlatformOrder = 0x04;		//	设备管理云参与鉴权或直接发起订单
+	SpecialVehicleOrder = 0x05;		//	特殊车辆直接发起订单
+	VINPrimingOrder = 0x06;			//	VIN预启动订单
+}
+
+//订单子类型枚举，记录可知鉴权方式
+enum OrderSubTypeEnum{
+	NormalOrderType = 0x00;			//	默认状态缺省值
+	VINSubTypeOrder = 0x01;			//	VIN鉴权发起订单
+	UIPassWordOrder = 0x02;			//	密码鉴权发起订单
+	NFCCardOrder = 0x03;			//	刷卡鉴权发起订单
+	ETCRFIDOrder = 0x04;			//	ETC鉴权发起订单
+	LicensePlateOrder = 0x05;		//	车牌识别鉴权订单
+	VisionRecognitionOrder = 0x06;	//	机器视觉，人脸/姿态/手势识别鉴权订单
+	VoiceRecognitionOrder = 0x07;	//	自然语义，声纹/语音识别鉴权订单
+}
+
+//订单状态枚举
+enum OrderStateEnum {
+	DefaultOrderState = 0x00;		//	未知状态缺省值
+	AuthenticationOrder = 0x01;		//	订单鉴权
+	EstablishOrder = 0x02;			//	订单创建，锁定管线
+	RuningState = 0x03;				//	订单运行中，锁定管线
+	SettlementState  = 0x04;		//	订单结算中，锁定管线
+	HangOrderState = 0x05;			//	订单挂起，释放管线
+	CompletedState  = 0x06;			//	订单完成，释放管线
+}
+
+//管线状态枚举
+enum PipelineStateEnum {
+	DefaultPipelineState = 0x00;	//	未知状态缺省值
+	DisablePipeline = 0x01;			//	失能管线
+	IdleState = 0x02;				//	未插枪，空闲
+	InsertedState = 0x03;			//	已插枪，管线进入可启动/可锁定状态
+	PrimingState = 0x04;			//	预启动，VIN预启动订单专用，仍为未锁定管线
+	StartingState = 0x05;			//	启动中，已锁定管线
+	ChargingState = 0x06;			//	充电中，已锁定管线
+	SettlementPipeline = 0x07;		//	结算中，已锁定管线
+}
+
+//订单停止策略枚举
+enum OrderStrategyEnum {
+	DefaultStrategy = 0x00;			//	未知状态缺省值，充满
+	
+	LocalFullStrategy = 0x01;		//	离线仍充
+	LocalDownStrategy = 0x02;		//	离线即停
+	SOCStrategy = 0x03;				//	特定SOC停止
+	VStrategy = 0x04;				//	特定电压停止
+	EnergyStrategy = 0x05;			//	特定电量停止
+	BillStrategy = 0x06;			//	特定金额停止
+}
+
+//订单结算通讯模块枚举
+enum SettlementModuleEnum {
+	UnKown = 0x00;					//	未知状态缺省值，非法
+	LOS = 0x01;						//	本地订单结算模块
+	DMC = 0x02;						//	设备管理云订单服务模块
+	ICC = 0x03;						//	爱充平台服务模块
+	XJC = 0x04;						//	小桔平台服务模块(小桔SDK版本)
+	GWC = 0x05;						//	国网及类国网协议平台服务模块(标准对外协议)
+}
+
+//故障告警类型枚举
+enum AlarmTypeEnum {
+	DefaultEndReason = 0x00;			//	缺省值
+
+	LTEFault = 0x01;					//	蜂窝网络故障 *
+	WiFiFault = 0x02;					//	wifi网络故障 *
+	GmacFault = 0x03;					//	有线网络故障 *
+	NetFault = 0x04;					//	完全网络故障 *
+	SettlementCloudFault = 0x05;		//	当前订单云网络故障 *
+	MeterOffLine = 0x06;				//	电表离线 *
+
+	StartUpTimeOut = 0x10;				//	订单启动超时
+	PeriodicCommunicationFault = 0x11;	//	当前订单云周期通讯超时
+	OrderSettlementFault = 0x12;		//	订单结算失败
+
+	SerialNumberFault = 0x20;			//	桩编码校验失败
+	UUIDFault = 0x21;					//	UUID生成异常
+	FRAMFault = 0x22;					//	热数据初始化失败
+	MeterFault = 0x23;					//	电表读数校验异常或故障
+}
+
+//	订单启动权限/优先级枚举
+enum OrderJurisdictionEnum {
+	DefaultAuthority = 0x00;			//	无订单启动权限
+	LowAuthority = 0x01;				//	低订单权限
+	NormalAuthority = 0x02;				//	普通订单权限
+	ProprietaryAuthority = 0x03;		//	自营订单权限
+	EmergencyAuthority = 0x04;			//	紧急订单权限，用于矿山公交等大功率需求
+	LocalAuthority = 0x05;				//	最高订单权限，用于现场演示及展出等目的
+}
+
+//BmsShakehands-握手阶段BMS信息
+message BmsShakehands
+{
+	DoubleValue BmsVolMaxAllowed = 1;	//	最高允许充电总电压
+    string GBTProtoVersion = 2;			//	GBT27930协议版本号 
+}
+
+//BmsIdentify-辨识阶段BMS信息
+message BmsIdentify
+{
+	Int32Value BatteryType = 1;			//	电池类型
+	DoubleValue CapacityRated = 2;		//	整车动力蓄电池系统额定容量（AH） 
+	DoubleValue VoltageRated = 3;		//	整车动力蓄电池额定总电压
+	string BatteryVendor = 4;			//	电池生产厂商名称
+	Int32Value BatterySequence = 5;		//	电池组序号 
+	string ProduceDate = 6;				//	电池组生产日期
+	Int32Value ChargeCount = 7;			//	电池组充电次数
+    Int32Value RightIdentifier = 8;		//	电池组产权标识 
+	string BmsVersion = 9;				//	BMS软件版本号
+	string BmsAndCarId = 10;			//	BMS和车辆辨识报文
+    string BmsVIN = 11;					//	BMS和车辆VIN
+}
+
+//BmsConfig-参数配置阶段BMS信息
+message BmsConfig
+{
+    DoubleValue VIndAllowedMax = 1;		//	单体动力蓄电池最高允许充电电压
+	DoubleValue IAllowedMax = 2;		//	最高允许充电电流
+	DoubleValue EnergyRated = 3;		//	动力蓄电池标称总能量 
+	DoubleValue VAllowedMax = 4;		//	最高允许充电总电压
+	DoubleValue TAllowedMax = 5;		//	最高允许温度
+	DoubleValue StartSoc = 6;			//	整车动力蓄电池荷电状态（SOC）
+	DoubleValue VCurrent = 7;			//	整车动力蓄电池当前电池电压
+	DoubleValue VCOutputMax = 8;		//	充电机最高输出电压
+    DoubleValue VCOutputMin = 9;		//	充电机最低输出电压
+	DoubleValue ICOutputMax = 10;		//	充电机最大输出电流
+	DoubleValue ICOutputMin = 11;		//	充电机最小输出电流
+}
+
+//BmsChargeFinish-充电结束阶段BMS信息
+message BmsChargeFinish
+{
+    DoubleValue EndSoc = 1;				//	中止荷电状态SOC（%） 
+	DoubleValue VMinIndividal = 2;		//	动力蓄电池单体最低电压
+	DoubleValue VMaxIndividal = 3;		//	动力蓄电池单体最高电压 
+	DoubleValue TemperatureMin = 4;		//	动力蓄电池最低温度
+	DoubleValue TemperatureMax = 5;		//	动力蓄电池最高温度
+	Int32Value BmsStopReason = 6;		//	BMS中止充电原因  
+    Int32Value BmsFaultReason = 7;		//	BMS中止充电故障原因  
+	Int32Value BmsErrorReason = 8;		//	BMS中止充电错误原因  
+	Int32Value ChargerStopReason = 9;	//	充电机中止充电原因  
+	Int32Value ChargerFaultReason = 10;	//	充电机中止充电故障原因  
+	Int32Value ChargerErrorReason = 11;	//	充电机中止充电错误原因  
+    Int32Value BmsEFrame = 12;			//	BMS错误报文 
+    Int32Value ChargerEFrame = 13;		//	充电机错误报文
+}
+
+//BmsCharging-充电阶段BMS信息
+message BmsCharging
+{
+    DoubleValue VDemand = 1;			//	需求电压 
+	DoubleValue IDemand = 2;			//	需求电流
+	DoubleValue CurrentSoc = 3;			//	当前SOC 
+	DoubleValue RemainTime = 4;			//	估算剩余充电时间(分钟)
+	ChargingMode ChargeMode = 5;		//	充电模式(恒压充/恒流充)
+	DoubleValue VMeasure = 6;			//	充电电压测量值
+	DoubleValue IMeasure = 7;			//	充电电流测量值
+	DoubleValue VIndMax = 8;			//	单体电池最高电压
+    Int32Value VIndMaxCode = 9;			//	单体电池最高电压所在编号
+	DoubleValue VIndMin = 10;			//	单体电池最低电压
+	Int32Value VIndMinCode = 11;		//	单体电池最低电压所在编号
+	DoubleValue TMax = 12;				//	电池最高温度
+	Int32Value TMaxCode = 13;			//	电池最高温度检测点编号
+	DoubleValue TMin = 14;				//	电池最低温度
+	Int32Value TMinCode = 15;			//	电池最低温度检测点编号
+	BoolEnum ChargeAllow = 16;			//	是否允许充电
+	BoolEnum VIndHigh = 17;				//	单体动力蓄电池电压是否过高
+	BoolEnum VIndLow = 18;				//	单体动力蓄电池电压是否过低
+    BoolEnum SoHigh = 19;				//	整车动力蓄电池荷电状态SOC是否过高
+	BoolEnum SocLow = 20;				//	整车动力蓄电池荷电状态SOC是否过低
+	BoolEnum IHigh = 21;				//	动力蓄电池充电是否过电流
+	BoolEnum THigh = 22;				//	动力蓄电池温度是否过高
+	BoolEnum Insulation = 23;			//	动力蓄电池绝缘状态是否绝缘
+	BoolEnum OutputConnector = 24;		//	动力蓄电池输出连接器连接状态是否连接
+	Int32Value VIndMaxGroupNum = 25;	//	最高单体动力蓄电池电压所在组号
+	Int32Value HeatingMode = 26;		//	加热模式0：正常模式，1：充电加热模式，2：加热模式，3：保留
+}
+
+// BMS重连事件
+message BMSReConnectEvent
+{
+	Int32Value TimeOutState = 1;		//	超时事件(ACK 发生/NACK 未发生)
+	BMSTimeoutEnum BMSTimeoutType = 2; 	//	超时类型（BHM/BRM/BCP/BCS/BCL/BST/BSD）
+	Int32Value ReconnectCnt = 3;		//	超时次数
+	Int32Value NextState = 4;			//	下一个重连状态
+}
+
+//需求上传信息
+message GunDesire {
+	FloatValue VDemand = 1;				//	需求电压 
+	FloatValue IDemand = 2;				//	需求电流
+	FloatValue VPTPDemand = 3;			//	模块PTP开机电压 
+	FloatValue IPTPDemand = 4;			//	模块PTP开机电流
+	BoolEnum OutConnectorDemand = 5;	//	输出接触器期望状态（吸合/断开）
+}
+
+
+//可用服务列表
+message EnableServer {
+	BoolEnum VCIServer = 1;			//	VCI模块状态，0表示不可用，1表示可用
+	BoolEnum PMMServer = 2;			//	PMM模块状态，0表示不可用，1表示可用
+	BoolEnum DMCServer = 3;			//	DMC模块状态，0表示不可用，1表示可用
+	BoolEnum OHPServer = 4;			//	OHP模块状态，0表示不可用，1表示可用
+	BoolEnum LCRServer = 5;			//	LCR模块状态，0表示不可用，1表示可用
+}
+
+//订单结算通讯模块状态描述
+message SettlementModuleState {
+	SettlementModuleEnum ModuleID = 1;			//	订单结算通讯模块
+	OrderStrategyEnum OffLineStrategy = 2;		//	离线策略
+	OrderStrategyEnum NormalStrategy= 3;		//	常规策略
+	BoolEnum RegisterState = 4;					//	注册状态，0表示不可用，1表示可用
+	BoolEnum PeriodicCommunication = 5;			//	周期联通性，0表示不可用，1表示可用
+	OrderJurisdictionEnum Jurisdiction = 6;		//	订单启动权限
+}
+
+//订单费率
+message OrderRate {
+	DateTimeShort StarTime=1;					//	费率区间开始时间
+	DateTimeShort EndTime=2;					//	费率区间结束时间
+	DoubleValue RuningRate = 3;					//	执行费率
+}
+
+//运行订单参数
+message RuningOrderState { 
+	SettlementModuleEnum ModuleID = 1;			//	发起订单结算通讯模块
+	UUIDValue OrderUUID = 2;					//	订单唯一编码
+	DoubleValue StartMeterReadOut = 3;			//	初始电表电能读数
+	DoubleValue NowMeterReadOut = 4;			//	当前电表电能读数
+	repeated OrderRate RuningRateList = 5;		//	订单当前执行费率
+}
+
+//电表状态及运行读数
+message MeterState {
+	DoubleValue MeterWReadOut = 1;			//	初始电表电能读数
+	DoubleValue MeterIReadOut = 2;			//	初始电表电流读数
+	DoubleValue MeterVReadOut = 3;			//	初始电表电压读数
+	BoolEnum MeterOffLine = 4;				//	电表离线状态，0表示离线，1表示正常
+	BoolEnum MeterCheck = 5;				//	电表校验状态，0表示异常，1表示正常
+	DateTimeLong RefreshTime = 6;			//	电表状态刷新时间
+}
+
+//订单流水线状态描述
+message OrderPipelineState {
+	Uint32Value MeterID = 1;					//	当前描述流水线编号，与电表485总线编号一致(0~5)
+	repeated SettlementModuleEnum ModuleID = 2;	//	流水线允许的订单结算通讯模块类型
+	BoolEnum OnLineState = 3;					//	流水线可用状态，0表示不可用，1表示可用
+	BoolEnum LockState = 4;						//	流水线锁定状态，0表示未锁定，1表示锁定
+	RuningOrderState RuningState = 5;			//	运行订单状态
+	MeterState MeterStateRefresh = 6;			//	电表运行状态
+	repeated AlarmTypeEnum AlarmAnsList = 7;	//	故障告警属性
+}
+
+//主状态机状态返回描述
+message OrderPipelineAns {
+	Uint32Value MeterID = 1;					//	当前描述流水线编号，与电表485总线编号一致(0~5)
+	repeated PMMFaultStopEnum PMMFault = 2;		//	PMM返回故障
+	repeated VCIFaultStopEnum VCIFault = 3;		//	VCI返回故障
+	BmsShakehands BmsShakehandsM = 4;			//	BMS返回信息
+	BmsIdentify BmsIdentifyM = 5;				//	BMS返回信息
+	BmsConfig BmsConfigM = 6;					//	BMS返回信息
+	BmsCharging BmsChargingM = 7;				//	BMS返回信息
+	BmsChargeFinish BmsChargeFinishM = 8;		//	BMS返回信息
+	ContactorStateEnum ContactorState = 9;		//	PMM返回信息
+}
+
+//流水线操作指令
+message SysCtrlCmd {
+	Int32Value ID = 1;							//	枪/主接触器/电表编号
+	BoolEnum StartCmd = 2;						//	开机指令(0表示不操作，1表示开机)
+	BoolEnum StopCmd = 3;						//	关机指令(0表示不操作，1表示关机)
+}
+
+//OHP订单流水线注册信息帧(0x00)
+message OrderPipelineLogin {
+	string OrderPipelineProtoVersion = 1;			//	订单流水线协议版本号
+	string OrderPipelineVendor = 2;					//	订单流水线模块版本号
+	SelfCheckType SelfCheckRul = 3;					//	订单流水线模块自检状态
+	Uint32Value MeterCount = 4;						//	系统已连接电表数量
+	repeated SettlementModuleEnum ModuleID = 5;		//	系统允许的订单结算通讯模块类型
+}
+
+//OHP订单流水线注册信息帧.响应(0x80)
+message OrderPipelineLoginAns {
+	string OrderPipelineProtoVersion = 1;			//	订单流水线协议版本号
+	string MainStateMachineVendor = 2;				//	主状态机模块版本号
+	SelfCheckType SelfCheckRul = 3;					//	主状态机模块自检状态
+	EnableServer EnableServerList = 4;				//	主状态机可用服务列表
+	repeated SettlementModuleEnum AllowList = 5;	//	订单结算通讯模块当前配置
+}
+
+//OHP订单流水线心跳周期信息帧(0x02)
+message OrderPipelineHeartbeatReq {
+	Uint32Value HeartbeatCtr = 1;					//	心跳计数
+	repeated OrderPipelineState PipelineState = 2;	//	流水线状态列表
+	repeated SettlementModuleState ModuleState = 3;	//	订单结算通讯模块状态列表
+	DateTimeLong CurrentTime = 4;					//	心跳时间戳
+	Uint32Value Interval = 5;						//	心跳信息间隔（毫秒）
+}
+
+//OHP订单流水线心跳周期信息帧.响应(0x82)
+message OrderPipelineHeartbeatAns {
+	Uint32Value HeartbeatCtr = 1;					//	心跳计数
+	repeated OrderPipelineAns PipelineAns = 2;		//	信息返回
+	DateTimeLong CurrentTime = 4;					//	心跳时间戳
+	Uint32Value Interval = 5;						//	心跳信息间隔（毫秒）
+}
+
+//订单流水线realtimepush
+//订单流水线突发上传信息帧(0x04)
+message  OrderPipelineRTpush {
+	Uint32Value MeterID = 1;						//	当前描述流水线编号，与电表485总线编号一致(0~5)
+	SettlementModuleEnum ModuleID = 2;				//	发起订单的结算模块类型
+	Uint32Value RTpushCtr = 2;						//	推送计数
+	SysCtrlCmd SysCtrlList = 3;						//	操作指令
+	Uint32Value Interval = 4;						//	反馈超时预期（毫秒）
+}
+
+//订单流水线realtimepull
+//订单流水线突发接收信息帧(0x84)
+message  OrderPipelineRTpull {
+	Uint32Value ID = 1;								//	当前描述枪头编号，与CAN总线编号一致(0~5)
+	Uint32Value RTpullCtr = 2;						//	推送计数
+	repeated PMMFaultStopEnum PMMFault = 3;			//	PMM返回故障
+	repeated VCIFaultStopEnum VCIFault = 4;			//	VCI返回故障
+	Uint32Value Interval = 5;						//	反馈超时预期（毫秒）
+}

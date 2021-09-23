@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"goWork/database"
+	"TestingPlatform/database"
 	"io"
 	"io/ioutil"
 	"log"
