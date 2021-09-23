@@ -3,8 +3,8 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"goWork/protoc/fsmvci"
-	"goWork/udp"
+	"TestingPlatform/protoc/fsmvci"
+	"TestingPlatform/udp"
 	"net"
 	"os"
 	"strconv"

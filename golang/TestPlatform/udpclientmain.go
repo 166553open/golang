@@ -1,11 +1,11 @@
 package main
 
 import (
+	"TestingPlatform/Utils"
+	"TestingPlatform/protoc/fsmvci"
+	"TestingPlatform/udp"
 	"bufio"
 	"fmt"
-	"goWork/Utils"
-	"goWork/protoc/fsmvci"
-	"goWork/udp"
 	"net"
 	"os"
 	"strconv"
@@ -75,7 +75,7 @@ func (m *MainUdp) VCImainHeartInit (client *udp.Client) *fsmvci.VCImainHeartbeat
 	return &fsmvci.VCImainHeartbeatReq{
 		HeartbeatCtr: &fsmvci.Uint32Value{Value: uint32(client.GunHeartbeatCtr)},
 		GunBaseList:  gunBaseList,
-		CurrentTime:  &fsmvci.DateTimeLong{Time: uint64(time.Now().Unix()) },
+		CurrentTime:  &fsmvci.DateTimeLong{Time: uint64(time.Now().UnixMilli())},
 		Interval:     &fsmvci.Uint32Value{Value: 200},
 	}
 }
