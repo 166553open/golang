@@ -2,6 +2,8 @@ package udp
 
 import (
 	"TestingPlatform/Utils"
+	"TestingPlatform/protoc/fsmohp"
+	"TestingPlatform/protoc/fsmpmm"
 	"TestingPlatform/protoc/fsmvci"
 	bytes2 "bytes"
 	"encoding/binary"
@@ -83,7 +85,7 @@ func (s *Server) ReadMsg (conn *net.UDPConn) {
 			fmt.Println("client close :", conn.RemoteAddr().String())
 			break
 		}
-		protoMsg, err := Utils.DeCodeByProto(bytes)
+		protoMsg, err := Utils.DeCodeByProto(s.Prot, bytes)
 		if err != nil {
 			return
 		}
@@ -91,18 +93,70 @@ func (s *Server) ReadMsg (conn *net.UDPConn) {
 		s.Online(addr.String())
 		msgTypeCode := Utils.ByteToUint8(bytes[3:4])
 		binary.Read(bytes2.NewBuffer(bytes[3:4]), binary.BigEndian, &msgTypeCode)
-		switch msgTypeCode {
-		case 0x00:
-			s.WriteVehicleChargingInterfaceLoginAns(conn, addr, protoMsg.(*fsmvci.VehicleChargingInterfaceLogin))
-		case 0x02:
-			s.WriteVCImainHeartbeatAns(conn, addr, protoMsg.(*fsmvci.VCImainHeartbeatReq))
-		case 0x04:
-			s.WriteVCIPluggedHeartbeatAns(conn, addr, protoMsg.(*fsmvci.VCIPluggedHeartbeatReq))
-		case 0x06:
-			s.WriteVCIChargingHeartbeatAns(conn, addr, protoMsg.(*fsmvci.VCIChargingHeartbeatReq))
-		case 0x08:
-			s.WriteVCIChargingRTpull(conn, addr, protoMsg.(*fsmvci.VCIChargingRTpush))
-		}
+		s.messageTypeAssertion(conn, addr, msgTypeCode, protoMsg)
+	}
+}
+
+// messageTypeAssertion
+// 消息类型断言
+// 不通Server消息体的Command 都是80、82、84、86、88
+func (s *Server) messageTypeAssertion (conn *net.UDPConn, addr net.Addr, msgTypeCode uint8, protoMsg proto.Message) {
+	if s.Prot == 9000 || s.Prot == 9010 || s.Prot == 9020 {
+		s.vciMessage(conn, addr, msgTypeCode, protoMsg)
+	}
+	if s.Prot == 9030 || s.Prot == 9040 {
+		s.pmmMessage(conn, addr, msgTypeCode, protoMsg)
+	}
+	if s.Prot == 9050 {
+		s.ohpMessage(conn, addr, msgTypeCode, protoMsg)
+	}
+}
+
+// VCI Server
+// vciMessage
+func (s *Server) vciMessage (conn *net.UDPConn, addr net.Addr, msgTypeCode uint8, protoMsg proto.Message) {
+	switch msgTypeCode {
+	case 0x00:
+		s.WriteVehicleChargingInterfaceLoginAns(conn, addr, protoMsg.(*fsmvci.VehicleChargingInterfaceLogin))
+	case 0x02:
+		s.WriteVCImainHeartbeatAns(conn, addr, protoMsg.(*fsmvci.VCImainHeartbeatReq))
+	case 0x04:
+		s.WriteVCIPluggedHeartbeatAns(conn, addr, protoMsg.(*fsmvci.VCIPluggedHeartbeatReq))
+	case 0x06:
+		s.WriteVCIChargingHeartbeatAns(conn, addr, protoMsg.(*fsmvci.VCIChargingHeartbeatReq))
+	case 0x08:
+		s.WriteVCIChargingRTpull(conn, addr, protoMsg.(*fsmvci.VCIChargingRTpush))
+	}
+}
+
+// PMM Server
+// pmmMessage
+func (s *Server) pmmMessage (conn *net.UDPConn, addr net.Addr, msgTypeCode uint8, protoMsg proto.Message) {
+	switch msgTypeCode {
+	case 0x00:
+		s.PowerMatrixLoginAns(conn, addr, protoMsg.(*fsmpmm.PowerMatrixLogin))
+	case 0x02:
+		s.ADModuleLoginAns(conn, addr, protoMsg.(*fsmpmm.ADModuleLogin))
+	case 0x04:
+		s.PMMHeartbeatReq(conn, addr, protoMsg.(*fsmpmm.PMMHeartbeatReq))
+	case 0x06:
+		s.MainContactorHeartbeatAns(conn, addr, protoMsg.(*fsmpmm.MainContactorHeartbeatReq))
+	case 0x08:
+		s.MainContactorRTpull(conn, addr, protoMsg.(*fsmpmm.MainContactorRTpush))
+	}
+}
+
+
+// OHP Server
+// ohpMessage
+func (s *Server) ohpMessage (conn *net.UDPConn, addr net.Addr, msgTypeCode uint8, protoMsg proto.Message) {
+	switch msgTypeCode {
+	case 0x00:
+		s.OrderPipelineLoginAns(conn, addr, protoMsg.(*fsmohp.OrderPipelineLogin))
+	case 0x02:
+		s.OrderPipelineHeartbeatAns(conn, addr, protoMsg.(*fsmohp.OrderPipelineHeartbeatReq))
+	case 0x04:
+		s.OrderPipelineRTpull(conn, addr, protoMsg.(*fsmohp.OrderPipelineRTpush))
 	}
 }
 
@@ -163,7 +217,7 @@ func (s *Server) WriteVCImainHeartbeatAns (conn *net.UDPConn, addr net.Addr, vCI
 
 // WriteVCIPluggedHeartbeatAns 0x84
 func (s *Server) WriteVCIPluggedHeartbeatAns (conn *net.UDPConn, addr net.Addr, vCImainHeartbeatReq *fsmvci.VCIPluggedHeartbeatReq)  {
-	heartbeatCtr := vCImainHeartbeatReq.HeartbeatCtr.Value
+	heartbeatCtr := vCImainHeartbeatReq.HeartbeatCtr.GetValue()
 	heartbeatCtr++
 	vCIPluggedHeartbeatAns := &fsmvci.VCIPluggedHeartbeatAns{
 		ID:           vCImainHeartbeatReq.ID,
@@ -182,7 +236,7 @@ func (s *Server) WriteVCIPluggedHeartbeatAns (conn *net.UDPConn, addr net.Addr, 
 
 // WriteVCIChargingHeartbeatAns 0x86
 func (s *Server) WriteVCIChargingHeartbeatAns (conn *net.UDPConn, addr net.Addr, vCImainHeartbeatReq *fsmvci.VCIChargingHeartbeatReq)  {
-	heartbeatCtr := vCImainHeartbeatReq.HeartbeatCtr.Value
+	heartbeatCtr := vCImainHeartbeatReq.HeartbeatCtr.GetValue()
 	heartbeatCtr++
 	vCIChargingHeartbeatAns := &fsmvci.VCIChargingHeartbeatAns{
 		ID:           vCImainHeartbeatReq.ID,
@@ -198,20 +252,142 @@ func (s *Server) WriteVCIChargingHeartbeatAns (conn *net.UDPConn, addr net.Addr,
 		CurrentTime:  &fsmvci.DateTimeLong{Time: uint64(time.Now().UnixMilli())},
 		Interval:     &fsmvci.Uint32Value{Value: 2000},
 	}
-
 	s.WriteMsg(conn,0x86, vCIChargingHeartbeatAns, addr)
 }
 
 // WriteVCIChargingRTpull 0x88
 func (s *Server) WriteVCIChargingRTpull (conn *net.UDPConn, addr net.Addr, vCImainHeartbeatReq *fsmvci.VCIChargingRTpush)  {
+	RTpushCtr := vCImainHeartbeatReq.RTpushCtr.GetValue()
+	RTpushCtr++
 	vCIChargingRTpull := &fsmvci.VCIChargingRTpull{
 		ID:        vCImainHeartbeatReq.ID,
-		RTpullCtr: &fsmvci.Uint32Value{Value: 5},
+		RTpullCtr: &fsmvci.Uint32Value{Value: RTpushCtr},
 		SysCtrl:   &fsmvci.SysCtrlChargingStage{StopCmd: &fsmvci.BoolEnum{Value: false}},
 		FaultList: nil,
 		Interval:  &fsmvci.Uint32Value{Value: 2000},
 	}
 	s.WriteMsg(conn,0x88, vCIChargingRTpull, addr)
+}
+
+// PowerMatrixLoginAns
+// 0x80
+func (s *Server) PowerMatrixLoginAns (conn *net.UDPConn, addr net.Addr, powerMatrixLogin *fsmpmm.PowerMatrixLogin) {
+	powerMatrixLoginAns := &fsmpmm.PowerMatrixLoginAns{
+		PowerModuleProtoVersion: powerMatrixLogin.PowerModuleProtoVersion,
+		MainStateMachineVendor:  powerMatrixLogin.PowerModuleVendor,
+		SelfCheckRul:            powerMatrixLogin.SelfCheckRul,
+		EnableServerList:        nil,
+		PramList:                nil,
+		Interval:                nil,
+	}
+	s.WriteMsg(conn, 0x80, powerMatrixLoginAns, addr)
+}
+
+// ADModuleLoginAns
+// 0x82
+func (s *Server) ADModuleLoginAns (conn *net.UDPConn, addr net.Addr, ADModuleLogin *fsmpmm.ADModuleLogin) {
+	ADModuleLoginAns := &fsmpmm.ADModuleLoginAns{
+		MainContactorAmount:   nil,
+		MatrixContactorAmount: nil,
+		DCModuleAmount:        ADModuleLogin.ADModuleAmount,
+		CtrlProtoVersion:      "0.1",
+		CtrlVendor:            "0.1",
+	}
+
+	s.WriteMsg(conn, 0x82, ADModuleLoginAns, addr)
+}
+
+// PMMHeartbeatReq
+// 0x84
+func (s *Server) PMMHeartbeatReq (conn *net.UDPConn, addr net.Addr, PMMHeartbeatReq *fsmpmm.PMMHeartbeatReq) {
+	heartbeatCtr := PMMHeartbeatReq.HeartbeatCtr.GetValue()
+	heartbeatCtr++
+	PMMHeartbeatAns := &fsmpmm.PMMHeartbeatAns{
+		HeartbeatCtr: &fsmpmm.Uint32Value{Value: heartbeatCtr},
+		PramList:     nil,
+		SysCtrlList:  nil,
+		CurrentTime:  &fsmpmm.DateTimeLong{Time: uint64(time.Now().UnixMilli()) },
+		Interval:     PMMHeartbeatReq.Interval,
+	}
+	s.WriteMsg(conn, 0x84, PMMHeartbeatAns, addr)
+}
+
+// MainContactorHeartbeatAns
+// 0x86
+func (s *Server) MainContactorHeartbeatAns (conn *net.UDPConn, addr net.Addr, MainHeartbeatReq *fsmpmm.MainContactorHeartbeatReq) {
+	heartbeatCtr := MainHeartbeatReq.HeartbeatCtr.GetValue()
+	heartbeatCtr++
+	MainHeartbeatAns := &fsmpmm.MainContactorHeartbeatAns{
+		ID:            MainHeartbeatReq.ID,
+		HeartbeatCtr:  &fsmpmm.Uint32Value{Value: heartbeatCtr},
+		SysCtrlList:   nil,
+		GunDesireList: nil,
+		CurrentTime:   Utils.FsmpmmCurrentTime(0),
+		Interval:      Utils.FsmpmmInterval(200),
+	}
+	s.WriteMsg(conn, 0x86, MainHeartbeatAns, addr)
+}
+
+// MainContactorRTpull
+// 0x88
+func (s *Server) MainContactorRTpull (conn *net.UDPConn, addr net.Addr, MainContactorRTpush *fsmpmm.MainContactorRTpush) {
+	heartbeatCtr := MainContactorRTpush.RTpushCtr.GetValue()
+	heartbeatCtr++
+	MainContactorRTpull := &fsmpmm.MainContactorRTpull{
+		ID:            MainContactorRTpush.ID,
+		RTpullCtr:     &fsmpmm.Uint32Value{Value: heartbeatCtr},
+		SysCtrlList:   nil,
+		GunDesireList: nil,
+		Interval:      MainContactorRTpush.Interval,
+	}
+	s.WriteMsg(conn, 0x88, MainContactorRTpull, addr)
+}
+
+// OrderPipelineLoginAns
+// 0x80
+func (s *Server) OrderPipelineLoginAns (conn *net.UDPConn, addr net.Addr, OrderPipelineLogin *fsmohp.OrderPipelineLogin) {
+	OrderPipelineLoginAns :=  &fsmohp.OrderPipelineLoginAns{
+		OrderPipelineProtoVersion: OrderPipelineLogin.OrderPipelineProtoVersion,
+		MainStateMachineVendor:    OrderPipelineLogin.OrderPipelineVendor,
+		SelfCheckRul:              OrderPipelineLogin.SelfCheckRul,
+		EnableServerList:          &fsmohp.EnableServer{
+			VCIServer: &fsmohp.BoolEnum{Value: true},
+			PMMServer: &fsmohp.BoolEnum{Value: true},
+			DMCServer: &fsmohp.BoolEnum{Value: true},
+			OHPServer: &fsmohp.BoolEnum{Value: true},
+			LCRServer: &fsmohp.BoolEnum{Value: true},
+		},
+		AllowList:                 []fsmohp.SettlementModuleEnum{1, 3, 4, 5},
+	}
+	s.WriteMsg(conn, 0x80, OrderPipelineLoginAns, addr)
+}
+
+// OrderPipelineHeartbeatAns
+// 0x82
+func (s *Server) OrderPipelineHeartbeatAns (conn *net.UDPConn, addr net.Addr, OrderPipelineHeartbeatReq *fsmohp.OrderPipelineHeartbeatReq) {
+	heartbeatCtr := OrderPipelineHeartbeatReq.HeartbeatCtr.GetValue()
+	heartbeatCtr++
+	OrderPipelineHeartbeatAns := &fsmohp.OrderPipelineHeartbeatAns{
+		HeartbeatCtr: &fsmohp.Uint32Value{Value: heartbeatCtr},
+		PipelineAns:  nil,
+		CurrentTime:  &fsmohp.DateTimeLong{Time: uint64(time.Now().UnixMilli())},
+		Interval:     &fsmohp.Uint32Value{Value: OrderPipelineHeartbeatReq.Interval.GetValue()},
+	}
+	s.WriteMsg(conn, 0x82, OrderPipelineHeartbeatAns, addr)
+}
+
+// OrderPipelineRTpull
+// 0x84
+func (s *Server) OrderPipelineRTpull (conn *net.UDPConn, addr net.Addr, OrderPipelineRTpush *fsmohp.OrderPipelineRTpush){
+	rTpushCtr := OrderPipelineRTpush.RTpushCtr.GetValue()
+	OrderPipelineRTpull := &fsmohp.OrderPipelineRTpull{
+		ID:        &fsmohp.Uint32Value{Value: OrderPipelineRTpush.MeterID.GetValue()},
+		RTpullCtr: &fsmohp.Uint32Value{Value: rTpushCtr},
+		PMMFault:  []fsmohp.PMMFaultStopEnum{},
+		VCIFault:  []fsmohp.VCIFaultStopEnum{},
+		Interval:  &fsmohp.Uint32Value{Value: OrderPipelineRTpush.Interval.GetValue()},
+	}
+	s.WriteMsg(conn, 0x84, OrderPipelineRTpull, addr)
 }
 
 // WriteHeartBeat Return heartBeat message

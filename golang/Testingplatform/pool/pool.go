@@ -34,6 +34,7 @@ type Pool struct {
 	capSlice []net.Conn
 }
 
+// NewPool
 // return connection pool pointer that have address and size(pool cap)
 func NewPool (address string, size int) *Pool {
 	capSlice := make([]net.Conn, 0)

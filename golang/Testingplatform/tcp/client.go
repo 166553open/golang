@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"github.com/golang/protobuf/proto"
 	"net"
+	"strconv"
+	"strings"
 )
 
 type client struct {
@@ -34,7 +36,12 @@ func (c *client) ReadMsg () {
 			c.conn.Close()
 			break
 		}
-		msgProto, err := Utils.DeCodeByProto(buff)
+		serverIpAndPorts := c.conn.RemoteAddr().String()
+		serverIpAndPort := strings.Split(serverIpAndPorts, ":")
+		serverPort := serverIpAndPort[len(serverIpAndPort)-1]
+		serverPortInt, _ := strconv.Atoi(serverPort)
+
+		msgProto, err := Utils.DeCodeByProto(serverPortInt, buff)
 		if err != nil {
 			return
 		}

@@ -63,7 +63,8 @@ func (s *Server) ReadMsg (conn  net.Conn) {
 			s.UnConnectConn(conn)
 			break
 		}
-		msgProto , err := Utils.DeCodeByProto(buff)
+
+		msgProto , err := Utils.DeCodeByProto(s.Port, buff)
 		if err != nil {
 			return
 		}

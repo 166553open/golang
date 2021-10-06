@@ -1,17 +1,21 @@
 package main
 
-import vci "TestingPlatform/VCI"
+import (
+	fsm "TestingPlatform/FSM"
+)
 
 func main () {
-	vciClient()
+	go vciClient()
+	go pmmClient()
+	go ohpClient()
 	for{
 
 	}
 }
 
 func vciClient () {
-	thread := vci.ThreadVCIInit()
-	for _, v := range thread.MainThread.WorkList {
+	thread := fsm.ThreadVCIInit()
+	for _, v := range thread.MainThread.AmountList {
 		go v.WriteMsg(uint(0x00), thread.VCIMainLoginInit())
 	}
 	//go thread.ReadMsg()
@@ -22,10 +26,18 @@ func vciClient () {
 }
 
 func pmmClient () {
-	thread := vci.ThreadPMMInit()
-	for _, v := range thread.MainThread.WorkList {
+	thread := fsm.ThreadPMMInit()
+	for _, v := range thread.MainThread.AmountList {
 		go v.WriteMsg(uint(0x00), thread.PowerMatrixLoginInit())
 		go v.WriteMsg(uint(0x02), thread.ADModuleLoginInit())
+	}
+	go thread.RecvCommand()
+}
+
+func ohpClient () {
+	thread := fsm.ThreadOHPInit()
+	for _, v := range thread.MainThread.AmountList {
+		go v.WriteMsg(uint(0x00), thread.OrderPipelineLoginInit(v))
 	}
 	go thread.RecvCommand()
 }

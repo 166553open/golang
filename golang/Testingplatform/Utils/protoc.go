@@ -2,8 +2,11 @@ package Utils
 
 import (
 	"TestingPlatform/conf"
+	"TestingPlatform/protoc/fsmohp"
 	"TestingPlatform/protoc/fsmpmm"
 	"TestingPlatform/protoc/fsmvci"
+	"encoding/json"
+	"errors"
 	"github.com/golang/protobuf/proto"
 	"strconv"
 	"time"
@@ -29,14 +32,39 @@ func EnCodeByProto (msgTypeCode uint, protoMsg proto.Message) ([]byte, error) {
 
 // DeCodeByProto
 // Proto message body decoding
-// Protoc 消息体解码
-func DeCodeByProto (bytes []byte) (proto.Message, error) {
+// Protoc 消息体解码 Server 根据端口区分
+func DeCodeByProto (port int, bytes []byte) (proto.Message, error) {
 	header := bytes[:4]
 	length := bytesToUint16(header[1:3])
 	msgTypeCode := bytesToUint8(header[3:4])
-	msgTypeName :=  conf.ProtoMessage[msgTypeCode]
 
-	return byteToProtoMsg(msgTypeName, bytes[4:length+4])
+	if port == 9000 || port == 9010 || port == 9020 {
+		return byteToProtoMsgWithVCI(conf.VCIMessage[msgTypeCode], bytes[4:length+4])
+	}
+	if port == 9030 ||port == 9040 {
+		return byteToProtoMsgWithPMM(conf.PMMMessage[msgTypeCode], bytes[4:length+4])
+	}
+	return nil, errors.New("don't use bed prot")
+}
+
+// PB2Json
+// Protoc 消息体转化为 Json 字符串
+func PB2Json (message proto.Message) (string, error)  {
+	bytes, err := json.Marshal(message)
+	if err != nil {
+		return "", err
+	}
+	return string(bytes), nil
+}
+
+// Json2PB
+// Json 字符串填充 Protoc 消息体
+func Json2PB (jsonStr string, message proto.Message) (proto.Message, error) {
+	err := json.Unmarshal([]byte(jsonStr), message)
+	if err != nil {
+		return nil, err
+	}
+	return message, nil
 }
 
 func FsmpmmId (Id int32) *fsmpmm.Int32Value {
@@ -216,9 +244,9 @@ func ADModuleParamInit (Id int32) *fsmpmm.ADModuleParam {
 // 用于PMM主线程模块注册信息帧 (0x02)
 // AlarmList []*ADModuleAlarm
 func ADModuleAlarmInit () *fsmpmm.ADModuleAlarm {
-	alarmTime :=time.Now().Unix()
+	alarmTime :=time.Now().UnixMilli()
 	downTime, _ := time.ParseDuration("5s")
-	downTime1 := time.Now().Add(5 * downTime).Unix()
+	downTime1 := time.Now().Add(5 * downTime).UnixMilli()
 
 	return &fsmpmm.ADModuleAlarm{
 		AlarmType:     fsmpmm.AlarmTypeEnum(1),
@@ -266,3 +294,13 @@ func MatrixStatusInit (Id int32) *fsmpmm.MatrixStatus {
 		AlarmAnsList: nil,
 	}
 }
+
+// OHPSettlementModuleEnum
+// 订单结算通讯模块枚举
+func OHPSettlementModuleEnum (SettlementModule ...fsmohp.SettlementModuleEnum) (SettlementModuleEnum []fsmohp.SettlementModuleEnum) {
+	for _, v := range SettlementModule {
+		SettlementModuleEnum = append(SettlementModuleEnum, v)
+	}
+	return
+}
+

@@ -9,14 +9,14 @@ type VCIMessage struct {
 }
 
 func (m *VCIMessage) VerifyMainRegister () error {
-	if m.ProjectType != "VCI" || m.MessageCode != "0" {
+	if m.MessageCode != "0" {
 		return errors.New("参数格式不正确")
 	}
 	return nil
 }
 
 func (m *VCIMessage) VerifyMainHeart () error {
-	if m.ProjectType != "VCI" || m.MessageCode != "2" {
+	if m.MessageCode != "2" {
 		return errors.New("参数格式不正确")
 	}
 	return nil

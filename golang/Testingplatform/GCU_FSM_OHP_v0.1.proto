@@ -1,9 +1,8 @@
 syntax = "proto3";
-package gcu_main_pmm.protobuf;
+package gcu_main_ohp.protobuf;
 //20210905 V0.1.1
-
-//基本数据类型
 option go_package="./protoc/fsmohp";
+//基本数据类型
 
 //用这个定义作为bool，可以区别发送方是否填值
 message BoolEnum {
@@ -175,9 +174,28 @@ enum VCIFaultStopEnum {
 	ChgForbidTimeOut = 0x97;		//	禁止充电超时
 }
 
+//充电类型
+enum ChargingMode {
+	DefaultChargingMode = 0x00;		//	缺省值
+	VoltageStable = 0x01;			//	恒压充电
+	CurrentStable = 0x02;			//	恒流充电
+}
+
+//BMS超时类型枚举
+enum BMSTimeoutEnum {
+	DefaultTimeout = 0x00;			//  缺省值
+	BHM = 0x01;						//	超时报文
+	BRM = 0x02;						//	超时报文
+	BCP = 0x03;						//	超时报文
+	BCS = 0x04;						//	超时报文
+	BCL = 0x05;						//	超时报文
+	BST = 0x06;						//	超时报文
+	BSD = 0x07;						//	超时报文
+}
+
 //接触器状态枚举
 enum ContactorStateEnum {
-	UnKown = 0x00;					//	未自检，未知状态缺省值
+	ContactorUnKown = 0x00;					//	未自检，未知状态缺省值
 	DriveFailure = 0x01;			//	故障，驱动失效
 	ContactorAdhesion = 0x02;		//	故障，触点粘连
 	ContactorStandby = 0x03;		//	可抢占，阵列接触器专用
@@ -295,15 +313,13 @@ enum OrderJurisdictionEnum {
 }
 
 //BmsShakehands-握手阶段BMS信息
-message BmsShakehands
-{
+message BmsShakehands {
 	DoubleValue BmsVolMaxAllowed = 1;	//	最高允许充电总电压
-    string GBTProtoVersion = 2;			//	GBT27930协议版本号 
+	string GBTProtoVersion = 2;			//	GBT27930协议版本号 
 }
 
 //BmsIdentify-辨识阶段BMS信息
-message BmsIdentify
-{
+message BmsIdentify {
 	Int32Value BatteryType = 1;			//	电池类型
 	DoubleValue CapacityRated = 2;		//	整车动力蓄电池系统额定容量（AH） 
 	DoubleValue VoltageRated = 3;		//	整车动力蓄电池额定总电压
@@ -311,16 +327,15 @@ message BmsIdentify
 	Int32Value BatterySequence = 5;		//	电池组序号 
 	string ProduceDate = 6;				//	电池组生产日期
 	Int32Value ChargeCount = 7;			//	电池组充电次数
-    Int32Value RightIdentifier = 8;		//	电池组产权标识 
+	Int32Value RightIdentifier = 8;		//	电池组产权标识 
 	string BmsVersion = 9;				//	BMS软件版本号
 	string BmsAndCarId = 10;			//	BMS和车辆辨识报文
-    string BmsVIN = 11;					//	BMS和车辆VIN
+	string BmsVIN = 11;					//	BMS和车辆VIN
 }
 
 //BmsConfig-参数配置阶段BMS信息
-message BmsConfig
-{
-    DoubleValue VIndAllowedMax = 1;		//	单体动力蓄电池最高允许充电电压
+message BmsConfig {
+	DoubleValue VIndAllowedMax = 1;		//	单体动力蓄电池最高允许充电电压
 	DoubleValue IAllowedMax = 2;		//	最高允许充电电流
 	DoubleValue EnergyRated = 3;		//	动力蓄电池标称总能量 
 	DoubleValue VAllowedMax = 4;		//	最高允许充电总电压
@@ -328,33 +343,31 @@ message BmsConfig
 	DoubleValue StartSoc = 6;			//	整车动力蓄电池荷电状态（SOC）
 	DoubleValue VCurrent = 7;			//	整车动力蓄电池当前电池电压
 	DoubleValue VCOutputMax = 8;		//	充电机最高输出电压
-    DoubleValue VCOutputMin = 9;		//	充电机最低输出电压
+	DoubleValue VCOutputMin = 9;		//	充电机最低输出电压
 	DoubleValue ICOutputMax = 10;		//	充电机最大输出电流
 	DoubleValue ICOutputMin = 11;		//	充电机最小输出电流
 }
 
 //BmsChargeFinish-充电结束阶段BMS信息
-message BmsChargeFinish
-{
-    DoubleValue EndSoc = 1;				//	中止荷电状态SOC（%） 
+message BmsChargeFinish {
+	DoubleValue EndSoc = 1;				//	中止荷电状态SOC（%） 
 	DoubleValue VMinIndividal = 2;		//	动力蓄电池单体最低电压
 	DoubleValue VMaxIndividal = 3;		//	动力蓄电池单体最高电压 
 	DoubleValue TemperatureMin = 4;		//	动力蓄电池最低温度
 	DoubleValue TemperatureMax = 5;		//	动力蓄电池最高温度
 	Int32Value BmsStopReason = 6;		//	BMS中止充电原因  
-    Int32Value BmsFaultReason = 7;		//	BMS中止充电故障原因  
+	Int32Value BmsFaultReason = 7;		//	BMS中止充电故障原因  
 	Int32Value BmsErrorReason = 8;		//	BMS中止充电错误原因  
 	Int32Value ChargerStopReason = 9;	//	充电机中止充电原因  
 	Int32Value ChargerFaultReason = 10;	//	充电机中止充电故障原因  
 	Int32Value ChargerErrorReason = 11;	//	充电机中止充电错误原因  
-    Int32Value BmsEFrame = 12;			//	BMS错误报文 
-    Int32Value ChargerEFrame = 13;		//	充电机错误报文
+	Int32Value BmsEFrame = 12;			//	BMS错误报文 
+	Int32Value ChargerEFrame = 13;		//	充电机错误报文
 }
 
 //BmsCharging-充电阶段BMS信息
-message BmsCharging
-{
-    DoubleValue VDemand = 1;			//	需求电压 
+message BmsCharging {
+	DoubleValue VDemand = 1;			//	需求电压 
 	DoubleValue IDemand = 2;			//	需求电流
 	DoubleValue CurrentSoc = 3;			//	当前SOC 
 	DoubleValue RemainTime = 4;			//	估算剩余充电时间(分钟)
@@ -362,7 +375,7 @@ message BmsCharging
 	DoubleValue VMeasure = 6;			//	充电电压测量值
 	DoubleValue IMeasure = 7;			//	充电电流测量值
 	DoubleValue VIndMax = 8;			//	单体电池最高电压
-    Int32Value VIndMaxCode = 9;			//	单体电池最高电压所在编号
+	Int32Value VIndMaxCode = 9;			//	单体电池最高电压所在编号
 	DoubleValue VIndMin = 10;			//	单体电池最低电压
 	Int32Value VIndMinCode = 11;		//	单体电池最低电压所在编号
 	DoubleValue TMax = 12;				//	电池最高温度
@@ -372,7 +385,7 @@ message BmsCharging
 	BoolEnum ChargeAllow = 16;			//	是否允许充电
 	BoolEnum VIndHigh = 17;				//	单体动力蓄电池电压是否过高
 	BoolEnum VIndLow = 18;				//	单体动力蓄电池电压是否过低
-    BoolEnum SoHigh = 19;				//	整车动力蓄电池荷电状态SOC是否过高
+	BoolEnum SoHigh = 19;				//	整车动力蓄电池荷电状态SOC是否过高
 	BoolEnum SocLow = 20;				//	整车动力蓄电池荷电状态SOC是否过低
 	BoolEnum IHigh = 21;				//	动力蓄电池充电是否过电流
 	BoolEnum THigh = 22;				//	动力蓄电池温度是否过高
@@ -383,8 +396,7 @@ message BmsCharging
 }
 
 // BMS重连事件
-message BMSReConnectEvent
-{
+message BMSReConnectEvent {
 	Int32Value TimeOutState = 1;		//	超时事件(ACK 发生/NACK 未发生)
 	BMSTimeoutEnum BMSTimeoutType = 2; 	//	超时类型（BHM/BRM/BCP/BCS/BCL/BST/BSD）
 	Int32Value ReconnectCnt = 3;		//	超时次数
@@ -459,7 +471,7 @@ message OrderPipelineState {
 
 //主状态机状态返回描述
 message OrderPipelineAns {
-	Uint32Value MeterID = 1;					//	当前描述流水线编号，与电表485总线编号一致(0~5)
+	Uint32Value MeterID = 1;					//	当前描述  流水线编号，与电表485总线编号一致(0~5)
 	repeated PMMFaultStopEnum PMMFault = 2;		//	PMM返回故障
 	repeated VCIFaultStopEnum VCIFault = 3;		//	VCI返回故障
 	BmsShakehands BmsShakehandsM = 4;			//	BMS返回信息
@@ -472,9 +484,11 @@ message OrderPipelineAns {
 
 //流水线操作指令
 message SysCtrlCmd {
-	Int32Value ID = 1;							//	枪/主接触器/电表编号
+	Uint32Value ID = 1;							//	枪/主接触器/电表编号
 	BoolEnum StartCmd = 2;						//	开机指令(0表示不操作，1表示开机)
-	BoolEnum StopCmd = 3;						//	关机指令(0表示不操作，1表示关机)
+	BoolEnum StartType = 3;						//	开机类型(0表示正常开机，1表示骗取VIN开机)
+	BoolEnum StopCmd = 4;						//	关机指令(0表示不操作，1表示关机)
+	BoolEnum ElockCmd = 5;						//	电子指令(0表示解锁，1表示上锁)
 }
 
 //OHP订单流水线注册信息帧(0x00)
@@ -508,8 +522,8 @@ message OrderPipelineHeartbeatReq {
 message OrderPipelineHeartbeatAns {
 	Uint32Value HeartbeatCtr = 1;					//	心跳计数
 	repeated OrderPipelineAns PipelineAns = 2;		//	信息返回
-	DateTimeLong CurrentTime = 4;					//	心跳时间戳
-	Uint32Value Interval = 5;						//	心跳信息间隔（毫秒）
+	DateTimeLong CurrentTime = 3;					//	心跳时间戳
+	Uint32Value Interval = 4;						//	心跳信息间隔（毫秒）
 }
 
 //订单流水线realtimepush
@@ -517,9 +531,9 @@ message OrderPipelineHeartbeatAns {
 message  OrderPipelineRTpush {
 	Uint32Value MeterID = 1;						//	当前描述流水线编号，与电表485总线编号一致(0~5)
 	SettlementModuleEnum ModuleID = 2;				//	发起订单的结算模块类型
-	Uint32Value RTpushCtr = 2;						//	推送计数
-	SysCtrlCmd SysCtrlList = 3;						//	操作指令
-	Uint32Value Interval = 4;						//	反馈超时预期（毫秒）
+	Uint32Value RTpushCtr = 3;						//	推送计数
+	SysCtrlCmd SysCtrlList = 4;						//	操作指令
+	Uint32Value Interval = 5;						//	反馈超时预期（毫秒）
 }
 
 //订单流水线realtimepull
@@ -531,3 +545,4 @@ message  OrderPipelineRTpull {
 	repeated VCIFaultStopEnum VCIFault = 4;			//	VCI返回故障
 	Uint32Value Interval = 5;						//	反馈超时预期（毫秒）
 }
+

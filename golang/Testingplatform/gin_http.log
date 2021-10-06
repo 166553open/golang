@@ -4,18 +4,28 @@
  - using env:	export GIN_MODE=release
  - using code:	gin.SetMode(gin.ReleaseMode)
 
-[GIN-debug] GET    /api/v1/ping              --> TestingPlatform/VCI.(*ThreadVCIList).RecvCommand.func1 (3 handlers)
-[GIN-debug] GET    /api/v1/vci/main/ws       --> TestingPlatform/VCI.(*ThreadVCIList).MainWS-fm (3 handlers)
-[GIN-debug] GET    /api/v1/vci/father/ws     --> TestingPlatform/VCI.(*ThreadVCIList).FatherWS-fm (3 handlers)
-[GIN-debug] GET    /api/v1/vci/son/ws        --> TestingPlatform/VCI.(*ThreadVCIList).SonWS-fm (3 handlers)
-[GIN-debug] POST   /api/v1/get/cmd           --> TestingPlatform/VCI.(*ThreadVCIList).getSqlMessage-fm (3 handlers)
-[GIN-debug] POST   /api/v1/vci/main/register --> TestingPlatform/VCI.(*ThreadVCIList).registerMain-fm (3 handlers)
-[GIN-debug] POST   /api/v1/vci/main/heart    --> TestingPlatform/VCI.(*ThreadVCIList).heartMain-fm (3 handlers)
-[GIN-debug] POST   /api/v1/vci/main/build    --> TestingPlatform/VCI.(*ThreadVCIList).buildMainHttp-fm (3 handlers)
-[GIN-debug] POST   /api/v1/vci/main/delete   --> TestingPlatform/VCI.(*ThreadVCIList).deleteMainHttp-fm (3 handlers)
-[GIN-debug] POST   /api/v1/vci/father/build  --> TestingPlatform/VCI.(*ThreadVCIList).buildFatherHttp-fm (3 handlers)
-[GIN-debug] POST   /api/v1/vci/father/delete --> TestingPlatform/VCI.(*ThreadVCIList).deleteFatherHttp-fm (3 handlers)
-[GIN-debug] POST   /api/v1/vci/son/build     --> TestingPlatform/VCI.(*ThreadVCIList).buildSonHttp-fm (3 handlers)
-[GIN-debug] POST   /api/v1/vci/son/delete    --> TestingPlatform/VCI.(*ThreadVCIList).deleteSonHttp-fm (3 handlers)
+[GIN-debug] GET    /api/v1/ping              --> TestingPlatform/FSM.(*ThreadVCIList).RecvCommand.func1 (3 handlers)
+[GIN-debug] GET    /api/v1/vci/main/ws       --> TestingPlatform/FSM.(*ThreadVCIList).MainWS-fm (3 handlers)
+[GIN-debug] GET    /api/v1/vci/father/ws     --> TestingPlatform/FSM.(*ThreadVCIList).FatherWS-fm (3 handlers)
+[GIN-debug] GET    /api/v1/vci/son/ws        --> TestingPlatform/FSM.(*ThreadVCIList).SonWS-fm (3 handlers)
+[GIN-debug] POST   /api/v1/get/cmd           --> TestingPlatform/FSM.(*ThreadVCIList).getSqlMessage-fm (3 handlers)
+[GIN-debug] POST   /api/v1/vci/main/register --> TestingPlatform/FSM.(*ThreadVCIList).registerMain-fm (3 handlers)
+[GIN-debug] POST   /api/v1/vci/main/heart    --> TestingPlatform/FSM.(*ThreadVCIList).heartMain-fm (3 handlers)
+[GIN-debug] POST   /api/v1/vci/main/build    --> TestingPlatform/FSM.(*ThreadVCIList).buildMainHttp-fm (3 handlers)
+[GIN-debug] POST   /api/v1/vci/main/delete   --> TestingPlatform/FSM.(*ThreadVCIList).deleteMainHttp-fm (3 handlers)
+[GIN-debug] POST   /api/v1/vci/father/build  --> TestingPlatform/FSM.(*ThreadVCIList).buildFatherHttp-fm (3 handlers)
+[GIN-debug] POST   /api/v1/vci/father/delete --> TestingPlatform/FSM.(*ThreadVCIList).deleteFatherHttp-fm (3 handlers)
+[GIN-debug] POST   /api/v1/vci/son/build     --> TestingPlatform/FSM.(*ThreadVCIList).buildSonHttp-fm (3 handlers)
+[GIN-debug] POST   /api/v1/vci/son/delete    --> TestingPlatform/FSM.(*ThreadVCIList).deleteSonHttp-fm (3 handlers)
 [GIN-debug] Listening and serving HTTP on :10001
-[GIN] 2021/09/23 - 09:23:23 | 200 |       1.001ms |       127.0.0.1 | POST     "/api/v1/vci/father/build"
+[GIN] 2021/10/06 - 10:30:37 | 200 |            0s |       127.0.0.1 | GET      "/api/v1/vci/main/ws?room=1"
+[GIN] 2021/10/06 - 10:30:39 | 200 |     14.5058ms |       127.0.0.1 | POST     "/api/v1/get/cmd"
+[GIN] 2021/10/06 - 10:30:43 | 200 |      1.0003ms |       127.0.0.1 | POST     "/api/v1/vci/main/register"
+[GIN] 2021/10/06 - 10:30:52 | 200 |            0s |       127.0.0.1 | POST     "/api/v1/vci/main/heart"
+[GIN] 2021/10/06 - 10:30:54 | 200 |           1ms |       127.0.0.1 | POST     "/api/v1/get/cmd"
+[GIN] 2021/10/06 - 10:30:56 | 400 |            0s |       127.0.0.1 | POST     "/api/v1/get/cmd"
+[GIN] 2021/10/06 - 10:31:59 | 200 |       999.9µs |       127.0.0.1 | POST     "/api/v1/get/cmd"
+[GIN] 2021/10/06 - 10:32:53 | 200 |      1.0006ms |       127.0.0.1 | POST     "/api/v1/get/cmd"
+[GIN] 2021/10/06 - 10:54:26 | 200 |            0s |       127.0.0.1 | GET      "/api/v1/vci/main/ws?room=1"
+[GIN] 2021/10/06 - 11:06:47 | 200 |            0s |       127.0.0.1 | GET      "/api/v1/vci/main/ws?room=1"
+[GIN] 2021/10/06 - 11:15:05 | 200 |            0s |       127.0.0.1 | GET      "/api/v1/vci/main/ws?room=1"
