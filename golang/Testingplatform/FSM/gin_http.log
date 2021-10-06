@@ -1,0 +1,23 @@
+[GIN-debug] [WARNING] Creating an Engine instance with the Logger and Recovery middleware already attached.
+
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] GET    /api/v1/ping              --> main.(*ThreadVCIList).RecvCommand.func1 (3 handlers)
+[GIN-debug] GET    /api/v1/vci/main/ws       --> main.(*ThreadVCIList).MainWS-fm (3 handlers)
+[GIN-debug] GET    /api/v1/vci/father/ws     --> main.(*ThreadVCIList).FatherWS-fm (3 handlers)
+[GIN-debug] GET    /api/v1/vci/son/ws        --> main.(*ThreadVCIList).SonWS-fm (3 handlers)
+[GIN-debug] POST   /api/v1/get/cmd           --> main.(*ThreadVCIList).getSqlMessage-fm (3 handlers)
+[GIN-debug] POST   /api/v1/vci/main/register --> main.(*ThreadVCIList).registerMain-fm (3 handlers)
+[GIN-debug] POST   /api/v1/vci/main/heart    --> main.(*ThreadVCIList).heartMain-fm (3 handlers)
+[GIN-debug] POST   /api/v1/vci/main/build    --> main.(*ThreadVCIList).buildMainHttp-fm (3 handlers)
+[GIN-debug] POST   /api/v1/vci/main/delete   --> main.(*ThreadVCIList).deleteMainHttp-fm (3 handlers)
+[GIN-debug] POST   /api/v1/vci/father/build  --> main.(*ThreadVCIList).buildFatherHttp-fm (3 handlers)
+[GIN-debug] POST   /api/v1/vci/father/delete --> main.(*ThreadVCIList).deleteFatherHttp-fm (3 handlers)
+[GIN-debug] POST   /api/v1/vci/son/build     --> main.(*ThreadVCIList).buildSonHttp-fm (3 handlers)
+[GIN-debug] POST   /api/v1/vci/son/delete    --> main.(*ThreadVCIList).deleteSonHttp-fm (3 handlers)
+[GIN-debug] Listening and serving HTTP on :10001
+[GIN] 2021/09/22 - 19:45:54 | 200 |            0s |       127.0.0.1 | POST     "/api/v1/vci/main/build"
+[GIN] 2021/09/22 - 19:46:02 | 400 |            0s |       127.0.0.1 | POST     "/api/v1/vci/main/build"
+[GIN] 2021/09/22 - 19:46:07 | 200 |            0s |       127.0.0.1 | POST     "/api/v1/vci/father/build"
