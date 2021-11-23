@@ -31,11 +31,14 @@
 │   ├── fsmpmm
 │   │    ├── GCU_FSM_PMM_v0.2.pb.go
 │   │    ├── GCU_FSM_PMM_v0.3.pb.go
-│   │    └── GCU_FSM_PMM_v0.4.pb.go
+│   │    ├── GCU_FSM_PMM_v0.4.pb.go
+│   │    └── GCU_FSM_PMM_v0.6.pb.go
 │   ├── fsmvci
 │   │    ├── GCU_FSM_VCI_v0.2.pb.go
 │   │    ├── GCU_FSM_VCI_v0.4.pb.go
-│   │    └── GCU_FSM_VCI_v0.6.pb.go
+│   │    ├── GCU_FSM_VCI_v0.6.pb.go
+│   │    ├── GCU_FSM_VCI_v0.8.pb.go
+│   │    └── GCU_FSM_VCI_v0.9.pb.go
 ├── Upd             /* 存放以UDP协议为基础构建的Client、Server基类 */
 │   ├── client.go
 │   └── server.go
