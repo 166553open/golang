@@ -1,0 +1,338 @@
+syntax = "proto3";
+package gcu_main_pmm.protobuf;
+//20210905 V0.1.1
+//20211021 V0.0.3
+//20211028 V0.0.4
+
+option go_package="./protoc/fsmpmm";
+
+//本协议专用枚举及消息单体
+
+
+//自检状态描述枚举
+enum SelfCheckType {
+	DefaultCheck = 0x00;			//	缺省值
+	Standby = 0x1;					//	已完成，状态可用
+	Checking = 0x2;					//	自检中，稍后上报
+	CheckFault = 0x3;				//	自检失败，自愈中
+}
+
+//可用服务列表
+message EnableServer {
+	bool VCIServer = 1;			//	VCI模块状态，0表示不可用，1表示可用
+	bool PMMServer = 2;			//	PMM模块状态，0表示不可用，1表示可用
+	bool DMCServer = 3;			//	DMC模块状态，0表示不可用，1表示可用
+	bool OHPServer = 4;			//	OHP模块状态，0表示不可用，1表示可用
+	bool LCRServer = 5;			//	LCR模块状态，0表示不可用，1表示可用
+}
+
+//接触器状态枚举 ：
+enum ContactorStateEnum {
+	UnKown = 0x00;					//	未自检，未知状态缺省值
+	DriveFailure = 0x01;			//	故障，驱动失效
+	ContactorAdhesion = 0x02;		//	故障，触点粘连
+	ContactorStandby = 0x03;		//	可抢占，阵列接触器专用
+	ContactorLocked = 0x04;			//	已被抢占，不可操作
+	ContactorReady = 0x05;			//	已被抢占，可操作，未吸合
+	ContactorCharging = 0x06;		//	已被抢占，可操作，已吸合
+	Aggregation = 0x07;				//	汇聚模式，主接触器专用
+}
+
+//充电模块状态枚举
+enum ADModuleOnOffStateEnum {
+	ADModuleOffing = 0x00;			//  关机
+	ADModuleStandby = 0x01;			//	待机
+	ADModuleStartACON = 0x02;		//	开AC
+	ADModuleStartParaSet = 0x03;	//	开机参数设置
+	ADModuleStartDCON = 0x04;		//	开DC
+	ADModuleActive = 0x05;          //  模块开机成功
+	ADModuleBroadCast = 0x06;		//	广播调压中
+	ADModuleInactive = 0x07;		//	开关机告警
+}
+//故障告警类型枚举
+enum AlarmTypeEnum {
+	DefaultEndReason = 0x00;		//	缺省值
+	//监控加工的故障
+	HvdcStartFail = 0x01;			//	充电模块开机超时 *
+	HvdcGroupFail = 0x02;			//	模块响应配组失败 *
+	HvdcOffline = 0x03;				//	模块离线 *
+
+	//40帧故障告警状态
+	OutOverVolt = 0x10;				//	输出过压 *
+	OverTemp = 0x11;				//	过温 *
+	FanFault = 0x12;				//	风扇故障 *
+	EEPROMFault = 0x13;				//	模块EEPROM故障（校准失败）
+	CANErr = 0x14;					//	模块CAN错误状态
+	ACLowVolt = 0x15;				//	模块交流欠压告警 *
+	ACLackPhase = 0x16;				//	模块交流缺相告警 *
+	SerUnblncdCurr = 0x17;			//	模块严重不均流 *
+	IDRepeat = 0x18;				//	模块ID重复 *
+	ACOverVolt = 0x19;				//	模块交流过压 *
+	PFCProtect = 0x1a;				//	模块PFC保护 *
+	SlightUnblncdCurr = 0x1b;		//	模块轻微不均流
+	DischgAlarm = 0x1c;				//	模块放电电路故障 *
+	SCFault = 0x1d;					//	模块短路锁死告警 *
+	InnerComAlarm = 0x1e;			//	模块内部通信异常告警
+
+	//43帧故障告警状态
+	ElectGridAbnor = 0x20;			//	电网异常检测预告警
+	ModRelayFault = 0x21;			//	模块继电器故障（安规故障）
+	OutCaplifeWarn = 0x22;			//	输出电解电容寿命预告警 *
+	ACCut = 0x23;					//	ACCUT输入掉电告警 *
+	DCOCP = 0x24;					//	DCOCP
+	BoardcorrectFail = 0x25;		//	单板校准失败
+	DiodeTempWarn = 0x26;			//	DC 二极管散热器温度预告警
+	MOSTempWarn = 0x27;				//	DC MOS管散热器温度预告警
+	PFCTempWarn = 0x28;				//	PFC散热器温度预告警
+}
+
+//故障告警发生状态枚举
+enum AlarmStateEnum {
+	DefaultAlarm = 0;				//	缺省
+	ADModuleNormal = 1;				//	故障告警恢复
+	ADModuleFaultNo = 2;			//	故障告警发生,故障
+}
+
+//故障终止列表
+enum FaultStopEnum {
+	DefaultStopCode = 0;				//	正常中止
+	NoChgMod = 0x01;					//	无模块可用
+	ModStartFail = 0x02;				//	模块开机超时
+	OutShortCircuit = 0x03;             //  输出短路
+	ContactPosStick = 0x04;			    //	输出接触器正极粘连故障
+	ContactNegStick = 0x05;				//	输出接触器负极粘连故障
+	ContactPosDiscnct = 0x06;			//	输出接触器正极驱动失效故障
+	ContactNegDiscnct = 0x07;			//	输出接触器负极驱动失效故障
+	InputACOverVolt = 0x08;             //  输入过压
+	InputACLowVolt = 0x09;              //  输入欠压
+	InputACLakePhase = 0x0A;            //  输入缺相
+	ArrayContactorCmdAbnormal = 0x0B;   //  阵列接触器指令异常
+	OutContactorCmdAbnormal   = 0x0C;   //  输出接触器指令异常
+	ArrayContactorStick = 0x0D;         //  阵列接触器粘连
+	ArrayContactorDiscnct = 0x0E;       //  阵列接触器驱动失效
+}
+
+//主接触器状态描述
+message MainStatus {
+	int32 ID = 1;							//	对应枪头编号
+	float BatVol = 2;						//	主接触器后级电压 
+	float ModVol = 3;						//	主接触器前级电压
+	ContactorStateEnum MainMode = 4;		//	主接触器当前状态
+	repeated int32 MatrixID = 5;			//	当前分配阵列接触器ID队列
+	repeated int32 ADModuleID = 6;			//	当前分配模块ID队列
+	repeated FaultStopEnum AlarmAnsList = 7;//	故障告警属性
+}
+
+//阵列接触器状态描述
+message MatrixStatus {
+	int32 ID = 1;							//	编号，0枪视角
+	ContactorStateEnum MatrixMode = 2;			//	阵列接触器当前状态
+	repeated  FaultStopEnum AlarmAnsList = 3;	//	故障告警属性
+}
+
+//接触器配置描述
+message ContactorPara {
+	int32 ID = 1;							//	对应枪头编号或接触器编号
+	float LimitCurr = 2;					//	主接触器最大电流
+}
+
+//模块注册参数描述
+message ADModuleAttr {
+	int32 ID = 1;              //	模块编号/位号
+	float currMax = 2;	        //	模块最大输出电流
+	float limitPower = 3;      //	模块限功率点
+	float volMax = 4;          //	模块最大输出电压
+	float volMin = 5;          //	模块限流输出最低电压
+	float ratedVol = 6;        //	模块额定/缺省输出电压
+	float ratedPower = 7;	    //  模块额定输出功率
+	float ratedCurr = 8;       //	模块额定输出电流
+	float ratedInputVol = 9;   //	模块额定输入电压
+	
+	string DCModuleSN = 10;         //	直流模块SN码(32位条码)
+	string softVersion = 11;	    //	直流模块软件版本号
+	string hardVersion = 12;	    //	直流模块硬件版本号
+}
+
+//复活告警信号描述
+message AlarmDataType {
+    int32 ID = 1;							//	模块编号/位号
+	uint32 AlarmState40 = 2;				//	40告警原始值
+	uint32 AlarmState42 = 3;				//	42告警原始值
+	uint32 AlarmState43 = 4;				//	43告警原始值
+}
+
+//故障告警描述
+message ADModuleAlarm {
+	AlarmTypeEnum AlarmType = 1;				//	故障告警类型
+	AlarmStateEnum AlarmState = 2;				//	故障告警状态
+    uint32 AlarmTime = 3;				//	故障告警发生时间
+    uint32 AlarmDownTime = 4;			//	故障告警恢复时间
+}
+
+//模块运行实时参数（设备管理用）
+message ADModuleParam {
+	int32 ID = 0x01;						//	模块编号/位号
+	
+	float outVol = 0x02;					//	直流电压，普通电压
+	float outCurr = 0x03;					//	直流电流，普通电流
+	float limitCurr = 0x04;					//	限制电流
+	
+	float intputVolA = 0x10;				//	A相电压
+	float intputVolB = 0x11;				//	B相电压
+	float intputVolC = 0x12;				//	C相电压
+
+	float intputCurrA = 0x13;				//	A相电流
+	float intputCurrB = 0x14;				//	B相电流
+	float intputCurrC = 0x15;				//	C相电流
+	float intputCurrN = 0x16;				//	零线电流
+
+	float activePower = 0x21;				//	总有功功率，普通功率
+	float reactivePower = 0x22;				//	总无功功率
+	float powerFactor = 0x23;				//	总功率因数
+	float voltUnbalanceRate = 0x24;			//	电压不平衡率
+	float currUnbalanceRate = 0x25;			//	电流不平衡率
+
+	float forwardActiveEnergy = 0x31;		//	正向有功电能
+	float reverseActiveEnergy = 0x32;		//	反向有功电能
+	float forwardReactiveEnergy = 0x33;		//	正向无功电能
+	float reverseReactiveEnergy = 0x34;		//	反向无功电能
+	
+	float ambientTemp = 0x40;				//	进风口/环境温度
+	float sensorTemp = 0x41;				//	传感器/散热温度
+	uint32 systemType = 0x47;				//	机型
+	uint32 runTimeCount = 0x48;				//	运行时长计数
+	uint32 onOffCunt = 0x49;				//	开关计数
+	bool positionStatus = 0x4A;				//	在位状态
+}
+
+//PMM模块配置参数
+message PowerMatrixPram {
+	repeated ContactorPara MainAttrList = 1;			//	主接触器配置
+	repeated ContactorPara MatrixAttrList = 2;			//	阵列接触器配置
+	repeated ADModuleAttr ADModuleAttrList = 3;			//	直流模块配置
+}
+
+//PMM模块系统操作指令
+message SysCtrlCmd {
+	int32 ID = 1;							//	主输出接触器编号
+	bool StartCmd = 2;						//	开机指令(0表示不操作，1表示开机)
+	bool StopCmd = 3;						//	关机指令(0表示不操作，1表示关机)
+}
+
+//VCI需求变化消息
+message GunDesire {
+	int32 ID = 1;						//	主输出接触器编号
+	float VDemand = 2;					//	需求电压 
+	float IDemand = 3;					//	需求电流
+	float VPTPDemand = 4;				//	模块PTP开机电压 
+	float IPTPDemand = 5;				//	模块PTP开机电流
+	int32  OutConnectorDemand = 6;		//	输出接触器期望状态（吸合/断开）
+}
+
+//PMM主线程通讯帧
+
+//功率矩阵注册信息帧(0x00)
+message PowerMatrixLogin {
+	int32 MainContactorAmount = 1;			//	主输出接触器计数
+	int32 MatrixContactorAmount = 2;		//	阵列接触器计数
+	int32 ADModuleAmount = 3;				//	直流模块计数
+	SelfCheckType SelfCheckRul = 4;			//	功率矩阵模块自检状态
+	string PowerModuleProtoVersion = 5;		//	功率矩阵协议版本号
+	string PowerModuleVendor = 6;			//	功率矩阵模块版本号
+}
+
+//功率矩阵注册信息帧.响应(0x80)
+message PowerMatrixLoginAns {
+	int32 Interval = 1;					    //	心跳信息间隔（毫秒）
+	SelfCheckType SelfCheckRul = 2;			//	主状态机模块自检状态
+	EnableServer EnableServerList = 3;		//	主状态机可用服务列表
+	PowerMatrixPram PramList= 4;			//	功率矩阵模块当前配置
+	string PowerModuleProtoVersion = 5;		//	功率矩阵协议版本号
+	string MainStateMachineVendor = 6;		//	主状态机模块版本号
+}
+
+//模块注册信息(0x02)
+message ADModuleLogin {
+	int32 ADModuleAmount = 1;				  //	直流模块计数
+	repeated ADModuleAttr ADModuleAList = 2;  //	模块注册参数队列
+	repeated ADModuleParam ADModulePList = 3; //	模块实时参数队列
+	repeated ADModuleAlarm AlarmList = 4;	  //	模块故障/告警队列
+	repeated AlarmDataType AlarmDataList = 5; //	模块故障/告警原始值
+}
+
+//模块注册信息.响应(0x82)
+message ADModuleLoginAns {
+	int32 MainContactorAmount = 1;			//	主输出接触器接触器计数
+	int32 MatrixContactorAmount = 2;		//	阵列接触器计数
+	int32 DCModuleAmount = 3;				//	直流模块计数
+	string CtrlProtoVersion = 4;            //	协议版本号
+	string CtrlVendor = 5;                  //	模块版本号
+}
+
+//心跳状态同步(0x04)
+message PMMHeartbeatReq {
+	uint32 HeartbeatCtr = 1;				    //	心跳计数
+	uint32 Interval = 2;					    //	心跳信息间隔（毫秒）
+	uint64 CurrentTime = 3;				        //	心跳时间戳
+	repeated MainStatus MainList = 4;			//	主接触器队列
+	repeated MatrixStatus MatrixList = 5;		//	阵列接触器队列
+	repeated ADModuleAttr ADModuleList = 6;		//	模块参数队列
+	repeated ADModuleParam ADModulePList = 7;	//	模块实时参数队列
+	repeated ADModuleAlarm AlarmList = 8;		//	模块故障/告警队列
+	repeated ADModuleOnOffStateEnum modOnOffState = 9;//  ACDC模块开关机状态(复活用) 
+}
+
+//心跳状态同步.响应(0x84)
+message PMMHeartbeatAns {
+    uint32 HeartbeatCtr = 1;				//	心跳计数
+	uint32 Interval = 2;					//	心跳信息间隔（毫秒）
+	uint64 CurrentTime = 3;				    //	心跳时间戳
+	PowerMatrixPram PramList= 4;			//	功率矩阵模块更新配置
+	repeated SysCtrlCmd SysCtrlList = 5;	//	系统指令列表
+}
+
+//PMM主接触器通讯帧
+
+//主接触器线程心跳周期信息帧(0x06)
+message MainContactorHeartbeatReq {
+	uint32 ID = 1;								//	主接触器编号
+	uint32 HeartbeatCtr = 2;					//	心跳计数
+	uint32 Interval = 3;						//	心跳信息间隔（毫秒）
+	uint64 CurrentTime = 4;					    //	心跳时间戳
+	float BatVol = 5;							//	主接触器后级电压 
+	float ModVol = 6;							//	主接触器前级电压
+	ContactorStateEnum MainMode = 7;			//	主接触器当前状态
+	FaultStopEnum AlarmAnsList = 8;				//	PMM系统故障告警
+	repeated int32 MatrixID = 9;				//	当前分配阵列接触器ID队列
+	repeated int32 ADModuleID = 10;				//	当前分配模块ID队列	
+}
+
+//主接触器线程心跳周期信息帧.响应(0x86)
+message MainContactorHeartbeatAns {
+	uint32 ID = 1;								//	主接触器编号
+	uint32 HeartbeatCtr = 2;					//	心跳计数
+	uint32 Interval = 3;						//	心跳信息间隔（毫秒）
+	uint64 CurrentTime = 4;					    //	心跳时间戳
+	SysCtrlCmd SysCtrlList = 5;				    //	系统指令
+	GunDesire GunDesireList = 6;			    //	需求参数
+}
+
+//主接触器线程realtimepush
+//主接触器线程突发上传信息帧(0x08)
+message MainContactorRTpush {
+	uint32 ID = 1;								//	主接触器编号
+	uint32 RTpushCtr = 2;						//	推送计数
+	uint32 Interval = 3;						//	反馈超时预期（毫秒）
+	ContactorStateEnum MainMode = 4;			//	主接触器当前状态
+	FaultStopEnum MainAlarmList = 5;			//	PMM系统故障告警属性
+}
+
+//主接触器线程realtimepull
+//主接触器线程突发接收信息帧(0x88)
+message MainContactorRTpull {
+	uint32 ID = 1;								//	主接触器编号
+	uint32 RTpullCtr = 2;						//	推送计数
+	uint32 Interval = 3;						//	反馈超时预期（毫秒）
+	SysCtrlCmd SysCtrlList = 4;				    //	系统指令
+	GunDesire GunDesireList = 5;			    //	需求参数
+}

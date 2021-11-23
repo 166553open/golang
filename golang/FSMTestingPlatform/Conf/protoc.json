@@ -1,0 +1,70 @@
+{
+  "PORT": {
+    "VCI":[9000, 9010, 9020],
+    "PMM":[9030, 9040],
+    "OHP":[9050]
+  },
+  "VCI": {
+    "Common": {
+      "//": "Interval:数据间隔; GunAmount:枪头计数; MainStateMachineVendor:车桩交互模块版本号; VehicleChargingProtoVersion:车桩交互协议版本号;",
+      "Interval": 200,
+      "GunAmount": 6,
+      "MainStateMachineVendor": "1.0.0",
+      "VehicleChargingProtoVersion": "1.0.0"
+    },
+    "VCIPram": {
+      "GunAmount": 6,
+      "LimitI": 6.00,
+      "LimitV": 9.00,
+      "MaxP": 54.00
+    },
+    "SysParameter": {
+      "SysVolMax": 18.00,
+      "SysCurrMax": 16.00,
+      "SysVolVMin": 14.00,
+      "SysVolCMin": 12.00,
+      "SysCurrMin": 15.00
+    },
+    "GunHandShake": {
+      "GBTProtoVersion": "1.0.0"
+    },
+    "GunVerifier": {
+      "BatteryType": 1,
+      "BatterySN": 1,
+      "BatterChargeCnt": 99999999,
+      "PropertyRight": 1,
+      "BatProductor": "西安万马新能源研发中心",
+      "BatProduceDate": "2022-05-01 12:00:00",
+      "BmsVersion": "1.0.0",
+      "BmsVIN": "SA0000",
+      "ChargerVerifyResult": 1,
+      "ChargerNo": 1000001,
+      "ChargerArea": "陕西西安"
+    }
+  },
+
+  "PMM": {
+    "Common": {
+      "//": "Interval:数据间隔; ADModuleAmount:直流模块计数; MainContactorAmount:接触器计数; PowerModuleVendor:功率矩阵模块版本号; PowerModuleProtoVersion:功率矩阵协议版本号;",
+      "Interval": 200,
+      "ADModuleAmount": 6,
+      "MainContactorAmount": 6,
+      "MatrixContactorAmount": 6,
+      "PowerModuleVendor": "1.0.1",
+      "PowerModuleProtoVersion": "1.0.1"
+    },
+    "ADModuleAttr": {
+      "DCModuleSN": "0x1100",
+      "SoftVersion": "1.0.0",
+      "HardVersion": "1.0.0"
+    }
+  },
+  "OHP": {
+    "Common": {
+      "//": "OrderPipelineProtoVersion: 订单流水线协议版本号; OrderPipelineVendor: 订单流水线模块版本号; MeterCount: 系统已连接电表数量",
+      "OrderPipelineProtoVersion": "1.0.0",
+      "OrderPipelineVendor": "1.0.0",
+      "MeterCount": 6
+    }
+  }
+}

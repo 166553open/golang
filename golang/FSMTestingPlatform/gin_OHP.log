@@ -1,0 +1,6 @@
+[GIN-debug] GET    /api/v1/ping              --> FSMTestingPlatform/FSM.(*ThreadOHPList).RecvCommand.func1 (4 handlers)
+[GIN-debug] POST   /api/v1/ohp-order/build   --> FSMTestingPlatform/FSM.(*ThreadOHPList).buildOrderHttp-fm (4 handlers)
+[GIN-debug] POST   /api/v1/ohp-order/register --> FSMTestingPlatform/FSM.(*ThreadOHPList).registerOrderPipeline-fm (4 handlers)
+[GIN-debug] POST   /api/v1/ohp-order/change-state --> FSMTestingPlatform/FSM.(*ThreadOHPList).heartOrderPipeline-fm (4 handlers)
+[GIN-debug] POST   /api/v1/ohp-order/change-rtState --> FSMTestingPlatform/FSM.(*ThreadOHPList).changeRTStatus-fm (4 handlers)
+[GIN-debug] POST   /api/v1/ohp-order/delete  --> FSMTestingPlatform/FSM.(*ThreadOHPList).deleteOrderHttp-fm (4 handlers)
