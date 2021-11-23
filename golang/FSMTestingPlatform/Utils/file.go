@@ -7,7 +7,10 @@ import (
 	"strings"
 )
 
+// ReadFile
+// ----------------------------------------------------------------------------
 // ReadFile 读取文件中信息，返回 interface类型
+// ----------------------------------------------------------------------------
 func ReadFile(fs, name string) (map[string]interface{}, error) {
 	byteData, err := ioutil.ReadFile(fs)
 	if err != nil {
@@ -23,14 +26,18 @@ func ReadFile(fs, name string) (map[string]interface{}, error) {
 	return SpecifyTupleUnderConfig(dataMap, name)
 }
 
-func SpecifyTupleUnderConfig (dataMap map[string]interface{},  name string) (map[string]interface{}, error) {
+// SpecifyTupleUnderConfig
+// ----------------------------------------------------------------------------
+// 检索指定名称的config配置
+// ----------------------------------------------------------------------------
+func SpecifyTupleUnderConfig(dataMap map[string]interface{}, name string) (map[string]interface{}, error) {
 	names := strings.Split(name, "/")
 	tempMap := dataMap
 
 	for _, v := range names {
 		if _, ok := tempMap[v].(map[string]interface{}); ok {
 			tempMap = tempMap[v].(map[string]interface{})
-		}else {
+		} else {
 			return tempMap, nil
 		}
 	}

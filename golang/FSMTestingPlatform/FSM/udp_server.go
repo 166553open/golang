@@ -1,21 +1,22 @@
 package fsm
 
 import (
-	"FSMTestingPlatform/udp"
 	"fmt"
 	"net"
+
+	udp "FSMTestingPlatform/Udp"
 )
 
 func main() {
-	go serverStart (9000)
-	go serverStart (9010)
-	go serverStart (9020)
-	for{
+	go serverStart(9000)
+	go serverStart(9010)
+	go serverStart(9020)
+	for {
 
 	}
 }
 
-func serverStart (port int) {
+func serverStart(port int) {
 	server := udp.NewServer(net.IPv4(0, 0, 0, 0), port)
 	conn, err := server.BuildUdpServer()
 	if err != nil {

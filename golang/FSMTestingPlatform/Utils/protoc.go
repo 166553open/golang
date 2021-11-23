@@ -1,18 +1,18 @@
 package Utils
 
 import (
-	"FSMTestingPlatform/Conf"
-	database "FSMTestingPlatform/Database"
-	"FSMTestingPlatform/protoc/fsmohp"
-	"FSMTestingPlatform/protoc/fsmpmm"
-	"FSMTestingPlatform/protoc/fsmvci"
 	"context"
-
 	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 	"time"
+
+	conf "FSMTestingPlatform/Conf"
+	database "FSMTestingPlatform/Database"
+	"FSMTestingPlatform/Protoc/fsmohp"
+	"FSMTestingPlatform/Protoc/fsmpmm"
+	"FSMTestingPlatform/Protoc/fsmvci"
 
 	"github.com/golang/protobuf/proto"
 )
@@ -20,33 +20,37 @@ import (
 /* 外部调用方法 */
 
 // EnCodeByProto
-// Proto message body Endoce
+// ----------------------------------------------------------------
 // Protoc 消息体编码
-func EnCodeByProto (msgTypeCode uint, protoMsg proto.Message)([]byte, error) {
+// ----------------------------------------------------------------
+func EnCodeByProto(msgTypeCode uint, protoMsg proto.Message) ([]byte, error) {
 	return addHeaderBytes(msgTypeCode, protoMsg)
 }
 
 // DeCodeByProto
-// Proto message body decoding
+// ----------------------------------------------------------------
 // Protoc 消息体解码 Server 根据端口区分
-func DeCodeByProto (port int, bytes []byte) (proto.Message, error) {
+// TODO 修改端口号
+// ----------------------------------------------------------------
+func DeCodeByProto(port int, bytes []byte) (proto.Message, error) {
 	header := bytes[:4]
 	length := bytesToUint16(header[1:3])
 	msgTypeCode := bytesToUint8(header[3:4])
-	//fmt.Println(bytes)
 
 	if port == 9000 || port == 9010 || port == 9020 {
 		return byteToProtoMsgWithVCI(conf.VCIMessage[msgTypeCode], bytes[4:length+4])
 	}
-	if port == 9030 ||port == 9040 {
+	if port == 9030 || port == 9040 {
 		return byteToProtoMsgWithPMM(conf.PMMMessage[msgTypeCode], bytes[4:length+4])
 	}
 	return nil, errors.New("don't use bed prot")
 }
 
 // PB2Json
+// ----------------------------------------------------------------
 // Protoc 消息体转化为 Json 字符串
-func PB2Json (message proto.Message) (string, error)  {
+// ----------------------------------------------------------------
+func PB2Json(message proto.Message) (string, error) {
 	bytes, err := json.Marshal(message)
 	if err != nil {
 		return "", err
@@ -55,8 +59,10 @@ func PB2Json (message proto.Message) (string, error)  {
 }
 
 // Json2PB
+// ----------------------------------------------------------------
 // Json 字符串填充 Protoc 消息体
-func Json2PB (jsonStr string, message proto.Message) (proto.Message, error) {
+// ----------------------------------------------------------------
+func Json2PB(jsonStr string, message proto.Message) (proto.Message, error) {
 	err := json.Unmarshal([]byte(jsonStr), message)
 	if err != nil {
 		return nil, err
@@ -67,10 +73,11 @@ func Json2PB (jsonStr string, message proto.Message) (proto.Message, error) {
 /* VCI Register START*/
 
 // VCIRegister
-// VCI manager 注册数据帧
-func VCIRegister (state int) *fsmvci.VCIManagerRegisterInfo {
-
-	protocMap, err := ReadFile("./conf/protoc.json", "VCI/Common")
+// ----------------------------------------------------------------
+// VCI Manager 注册数据帧 0x00
+// ----------------------------------------------------------------
+func VCIRegister(state int) *fsmvci.VCIManagerRegisterInfo {
+	protocMap, err := ReadFile("./Conf/protoc.json", "VCI/Common")
 	ProtocolVer, SelfCheckResult := "0.0.0", "0.0.0"
 	if err == nil {
 		ProtocolVer = protocMap["VehicleChargingProtoVersion"].(string)
@@ -78,16 +85,17 @@ func VCIRegister (state int) *fsmvci.VCIManagerRegisterInfo {
 	}
 
 	return &fsmvci.VCIManagerRegisterInfo{
-		ProtocolVer: 		ProtocolVer,
-		EditionNumber:		SelfCheckResult,
-		SelfCheckResult:	fsmvci.SelfCheckState(state),
+		ProtocolVer:     ProtocolVer,
+		EditionNumber:   SelfCheckResult,
+		SelfCheckResult: fsmvci.SelfCheckState(state),
 	}
-
 }
 
 // VCIRegisterHeart
-// VCI Register 心跳监测帧
-func VCIRegisterHeart (hBeatCnt, hBeatPeriod uint32, timeNow uint64, gunBaseList []*fsmvci.GunBasicState, connectList []*fsmvci.GunConnectState) *fsmvci.VCIManagerHeartBeatInfo {
+// ----------------------------------------------------------------
+// VCI Manager 线程 0x02
+// ----------------------------------------------------------------
+func VCIRegisterHeart(hBeatCnt, hBeatPeriod uint32, timeNow uint64, gunBaseList []*fsmvci.GunBasicState, connectList []*fsmvci.GunConnectState) *fsmvci.VCIManagerHeartBeatInfo {
 	return &fsmvci.VCIManagerHeartBeatInfo{
 		HeartBeatCnt:          hBeatCnt,
 		TimeNow:               timeNow,
@@ -100,18 +108,22 @@ func VCIRegisterHeart (hBeatCnt, hBeatPeriod uint32, timeNow uint64, gunBaseList
 }
 
 // GunBaseStatusInit
-// VCI (0x02)
-func GunBaseStatusInit (gunId, linkState, positionStatus uint32) *fsmvci.GunBasicState {
+// ----------------------------------------------------------------
+// VCI枪头基础状态信息 (0x02)
+// ----------------------------------------------------------------
+func GunBaseStatusInit(gunId, linkState, positionStatus uint32) *fsmvci.GunBasicState {
 	return &fsmvci.GunBasicState{
-		GunID:				gunId,
-		LinkState:			linkState,
-		PositionedState:	positionStatus,
+		GunID:           gunId,
+		LinkState:       linkState,
+		PositionedState: positionStatus,
 	}
 }
 
 // ConnectStateList
-// VCI (0x02)
-func ConnectStateList (auxDriver, auxFeedback, eLockDriver, eLockFeedback uint32) *fsmvci.GunConnectState {
+// ----------------------------------------------------------------
+// VCI枪头连接阶段状态信息 (0x02)
+// ----------------------------------------------------------------
+func ConnectStateList(auxDriver, auxFeedback, eLockDriver, eLockFeedback uint32) *fsmvci.GunConnectState {
 	return &fsmvci.GunConnectState{
 		AuxDriver:     auxDriver,
 		AuxFeedback:   auxFeedback,
@@ -124,23 +136,37 @@ func ConnectStateList (auxDriver, auxFeedback, eLockDriver, eLockFeedback uint32
 
 /* VCI Register END*/
 
-/* VCI Charging 充电心跳帧 START*/
+/* VCI Charging 充电线程 START*/
+
+// VCIChargingRegister
+// ----------------------------------------------------------------
+// VCI Charger注册数据帧 0x01
+// ----------------------------------------------------------------
+func VCIChargingRegister(port uint32) *fsmvci.VCIChargerRegisterInfo {
+	return &fsmvci.VCIChargerRegisterInfo{
+		Register:     1,
+		RegisterPort: port,
+		RegisterTime: uint64(time.Now().UnixMilli()),
+	}
+}
 
 // VCIChargingHeart
-// VCI Charging 充电心跳帧
-func VCIChargingHeart (gunId, hBeatCnt, hBeatPeriod uint32, faultList []*fsmvci.ChargerFaultState) *fsmvci.VCIChargerHeartBeatInfo {
+// ----------------------------------------------------------------
+// VCI Charging 充电心跳帧 0x06
+// ----------------------------------------------------------------
+func VCIChargingHeart(gunId, hBeatCnt, hBeatPeriod uint32, faultList []*fsmvci.ChargerFaultState) *fsmvci.VCIChargerHeartBeatInfo {
 	return &fsmvci.VCIChargerHeartBeatInfo{
-		ChargingID:        gunId,
-		HeartbeatCnt:      hBeatCnt,
-		TimeNow:           uint64(time.Now().UnixMilli()),
-		HeartBeatPeriod:   hBeatPeriod,
-		FaultListLong:     uint32(len(faultList)),
-		GunHandShake:      VCIGunHandShake(),
-		GunVerifier:       VCIGunVerifier(),
-		GunBMSconfig:      VCIGunBMSconfig(),
-		GunCharging:       VCIGunCharging(),
+		ChargingID:      gunId,
+		HeartbeatCnt:    hBeatCnt,
+		TimeNow:         uint64(time.Now().UnixMilli()),
+		HeartBeatPeriod: hBeatPeriod,
+		FaultListLong:   uint32(len(faultList)),
+		GunHandShake:    VCIGunHandShake(),
+		GunVerifier:     VCIGunVerifier(),
+		GunBMSconfig:    VCIGunBMSconfig(),
+		GunCharging:     VCIGunCharging(),
 
-		GunTimeout:        VCIGunTimeout (),
+		GunTimeout:        VCIGunTimeout(),
 		GunChargingEnd:    VCIGunChargingEnd(),
 		ReConnect:         VCIReConnect(),
 		FaultList:         faultList,
@@ -149,7 +175,9 @@ func VCIChargingHeart (gunId, hBeatCnt, hBeatPeriod uint32, faultList []*fsmvci.
 }
 
 // VCIGunHandShake
-// 枪头充电阶段状态信息
+// ----------------------------------------------------------------
+// 枪头充电阶段状态信息 (0x06)
+// ----------------------------------------------------------------
 func VCIGunHandShake() *fsmvci.BMSHandShake {
 	protocMap, err := ReadFile("./Conf/protoc.json", "VCI/GunHandShake")
 	gbTProtoVersion := ""
@@ -166,9 +194,11 @@ func VCIGunHandShake() *fsmvci.BMSHandShake {
 }
 
 // VCIGunVerifier
-// 辨识阶段BMS信息（辨识充电桩）
+// ----------------------------------------------------------------
+// 辨识阶段BMS信息（辨识充电桩）(0x06)
+// ----------------------------------------------------------------
 func VCIGunVerifier() *fsmvci.BMSVerification {
-	protocMap, err := ReadFile("./conf/protoc.json", "VCI/GunVerifier")
+	protocMap, err := ReadFile("./Conf/protoc.json", "VCI/GunVerifier")
 
 	var batteryType uint32 = 0
 	var batterySN uint32 = 0
@@ -193,7 +223,7 @@ func VCIGunVerifier() *fsmvci.BMSVerification {
 		chargerNo = uint32(protocMap["ChargerNo"].(float64))
 
 		batProductor, batProduceDate = protocMap["BatProductor"].(string), protocMap["BatProduceDate"].(string)
-		bmsVersion, bmsVIN  = protocMap["BmsVersion"].(string), protocMap["BmsVIN"].(string)
+		bmsVersion, bmsVIN = protocMap["BmsVersion"].(string), protocMap["BmsVIN"].(string)
 		chargerArea = protocMap["ChargerArea"].(string)
 	}
 	return &fsmvci.BMSVerification{
@@ -214,8 +244,10 @@ func VCIGunVerifier() *fsmvci.BMSVerification {
 }
 
 // VCIGunBMSconfig
-// 参数配置阶段BMS信息
-func VCIGunBMSconfig () *fsmvci.BMSConfig {
+// ----------------------------------------------------------------
+// 参数配置阶段BMS信息 (0x06)
+// ----------------------------------------------------------------
+func VCIGunBMSconfig() *fsmvci.BMSConfig {
 	length := len(conf.Float32Value)
 	return &fsmvci.BMSConfig{
 		MonoVolMaxAllowed:  conf.Float32Value[RandValue(length)],
@@ -235,11 +267,13 @@ func VCIGunBMSconfig () *fsmvci.BMSConfig {
 }
 
 // VCIGunCharging
-// 充电阶段BMS信息
-func VCIGunCharging () *fsmvci.	BMSCharging {
+// ----------------------------------------------------------------
+// 充电阶段BMS信息 (0x06)
+// ----------------------------------------------------------------
+func VCIGunCharging() *fsmvci.BMSCharging {
 	length := len(conf.Uint32Value)
 	return &fsmvci.BMSCharging{
-		ChargeMode:           fsmvci.ChargingMode(RandValue(2)+1),
+		ChargeMode:           fsmvci.ChargingMode(RandValue(2) + 1),
 		HeatingMode:          conf.Uint32Value[RandValue(length)],
 		TotalChgTime:         conf.Uint32Value[RandValue(length)],
 		MonoBatVolMaxCode:    conf.Uint32Value[RandValue(length)],
@@ -271,8 +305,10 @@ func VCIGunCharging () *fsmvci.	BMSCharging {
 }
 
 // VCIGunTimeout
-// BMS 超时阶段报文
-func VCIGunTimeout () *fsmvci.BMSTimeout {
+// ----------------------------------------------------------------
+// BMS 超时阶段报文 (0x06)
+// ----------------------------------------------------------------
+func VCIGunTimeout() *fsmvci.BMSTimeout {
 	return &fsmvci.BMSTimeout{
 		BmsErrorFrame:     conf.VCIFaultList[RandValue(13)+1],
 		ChargerErrorFrame: conf.VCIFaultList[RandValue(13)+13],
@@ -280,8 +316,10 @@ func VCIGunTimeout () *fsmvci.BMSTimeout {
 }
 
 // VCIGunChargingEnd
-// BmsChargeFinish-充电结束阶段BMS信息
-func VCIGunChargingEnd () *fsmvci.BMSChargingEnd {
+// ----------------------------------------------------------------
+// BmsChargeFinish-充电结束阶段BMS信息 (0x06)
+// ----------------------------------------------------------------
+func VCIGunChargingEnd() *fsmvci.BMSChargingEnd {
 	length := len(conf.Float32Value)
 	return &fsmvci.BMSChargingEnd{
 		EndSOC:             conf.Float32Value[RandValue(length)],
@@ -299,20 +337,23 @@ func VCIGunChargingEnd () *fsmvci.BMSChargingEnd {
 }
 
 // VCIReConnect
-// BMS重连事件
-func VCIReConnect () *fsmvci.BMSReConnectEvent {
+// ----------------------------------------------------------------
+// BMS重连事件 (0x06)
+// ----------------------------------------------------------------
+func VCIReConnect() *fsmvci.BMSReConnectEvent {
 	return &fsmvci.BMSReConnectEvent{
 		TimeOutState:   uint32(RandValue(2)),
-		BmsTimeoutType: fsmvci.BMSTimeoutEnum(int32(RandValue(7)+1)) ,
-		ReconnectCnt:   uint32(RandValue(7)+1),
-		NextState:      uint32(RandValue(4)+1),
+		BmsTimeoutType: fsmvci.BMSTimeoutEnum(int32(RandValue(7) + 1)),
+		ReconnectCnt:   uint32(RandValue(7) + 1),
+		NextState:      uint32(RandValue(4) + 1),
 	}
 }
 
 // VCIChargingReviveMsg
-// 充电线程恢复数据
-func VCIChargingReviveMsg (gunId uint32) *fsmvci.ChargerRevive {
-
+// ----------------------------------------------------------------
+// 充电线程恢复数据 (0x06)
+// ----------------------------------------------------------------
+func VCIChargingReviveMsg(gunId uint32) *fsmvci.ChargerRevive {
 	lengthVCI := len(conf.VCIFaultList)
 	lengthFloat32 := len(conf.Float32Value)
 	return &fsmvci.ChargerRevive{
@@ -322,18 +363,18 @@ func VCIChargingReviveMsg (gunId uint32) *fsmvci.ChargerRevive {
 		FaultState1:    conf.VCIFaultList[RandValue(lengthVCI)],
 		FaultState2:    conf.VCIFaultList[RandValue(lengthVCI)],
 		FaultState3:    conf.VCIFaultList[RandValue(lengthVCI)],
-		BmsCommState:   uint32(RandValue(5)+1),
-		BmsRecvState:   uint32(RandValue(5)+1),
-		BmsType:        uint32(RandValue(2)+1),
-		BmsTimeoutCnt:  uint32(RandValue(5)+1),
-		ElockState:     uint32(RandValue(2)+1),
-		AuxPowerState:  uint32(RandValue(2)+1),
+		BmsCommState:   uint32(RandValue(5) + 1),
+		BmsRecvState:   uint32(RandValue(5) + 1),
+		BmsType:        uint32(RandValue(2) + 1),
+		BmsTimeoutCnt:  uint32(RandValue(5) + 1),
+		ElockState:     uint32(RandValue(2) + 1),
+		AuxPowerState:  uint32(RandValue(2) + 1),
 		BmsCurrentMax:  conf.Float32Value[RandValue(lengthFloat32)],
 		BmsVoltageMax:  conf.Float32Value[RandValue(lengthFloat32)],
 		CellVoltageMax: conf.Float32Value[RandValue(lengthFloat32)],
 		CellTempMax:    conf.Float32Value[RandValue(lengthFloat32)],
-		InsultState:    uint32(RandValue(2)+1),
-		InsultResult:   uint32(RandValue(3)+1),
+		InsultState:    uint32(RandValue(2) + 1),
+		InsultResult:   uint32(RandValue(3) + 1),
 		InsultVoltage:  conf.Float32Value[RandValue(lengthFloat32)],
 	}
 }
@@ -343,22 +384,26 @@ func VCIChargingReviveMsg (gunId uint32) *fsmvci.ChargerRevive {
 /* Rt数据帧 START*/
 
 // VCIChargerRTInfo
-// Rt数据帧
-func VCIChargerRTInfo (gunId, pushCnt, rtPeriod uint32, faultList []*fsmvci.ChargerFaultState) *fsmvci.VCIChargerRTInfo {
+// ----------------------------------------------------------------
+// Rt数据帧 0x08
+// ----------------------------------------------------------------
+func VCIChargerRTInfo(gunId, pushCnt, rtPeriod uint32, faultList []*fsmvci.ChargerFaultState) *fsmvci.VCIChargerRTInfo {
 	return &fsmvci.VCIChargerRTInfo{
-		ChargerID:    gunId,
-		PushCnt:      pushCnt,
-		RtPeriod:     rtPeriod,
-		ApplyMsg:     VCIApplyMsg(),
-		FaultListLong:uint32(len(faultList)),
-		ConnectEvent: VCIConnectEvent(),
-		FaultList:    faultList,
+		ChargerID:     gunId,
+		PushCnt:       pushCnt,
+		RtPeriod:      rtPeriod,
+		ApplyMsg:      VCIApplyMsg(),
+		FaultListLong: uint32(len(faultList)),
+		ConnectEvent:  VCIConnectEvent(),
+		FaultList:     faultList,
 	}
 }
 
 // VCIApplyMsg
-// 需求上传信息
-func VCIApplyMsg () *fsmvci.GunApplyInfo {
+// ----------------------------------------------------------------
+// 需求上传信息 (0x08)
+// ----------------------------------------------------------------
+func VCIApplyMsg() *fsmvci.GunApplyInfo {
 	length := len(conf.Float32Value)
 	return &fsmvci.GunApplyInfo{
 		VoltageApplied:   conf.Float32Value[RandValue(length)],
@@ -370,8 +415,10 @@ func VCIApplyMsg () *fsmvci.GunApplyInfo {
 }
 
 // VCIHaltMsg
-// 需求上传信息
-func VCIHaltMsg () *fsmvci.GunCaredInfo {
+// ----------------------------------------------------------------
+// 需求上传信息 (0x08)
+// ----------------------------------------------------------------
+func VCIHaltMsg() *fsmvci.GunCaredInfo {
 	length := len(conf.Float32Value)
 	return &fsmvci.GunCaredInfo{
 		AllocaOK:       conf.Uint32Value[RandValue(2)],
@@ -380,16 +427,18 @@ func VCIHaltMsg () *fsmvci.GunCaredInfo {
 		MeterCurrent:   conf.Float32Value[RandValue(length)],
 		BatVoltage:     conf.Float32Value[RandValue(length)],
 		ModVoltage:     conf.Float32Value[RandValue(length)],
-		MeterEnergy:	conf.Float64Value[RandValue(len(conf.Float64Value))],
+		MeterEnergy:    conf.Float64Value[RandValue(len(conf.Float64Value))],
 	}
 }
 
 // VCIConnectEvent
-// BMS重连事件
-func VCIConnectEvent () *fsmvci.BMSReConnectEvent {
+// ----------------------------------------------------------------
+// BMS重连事件 (0x08)
+// ----------------------------------------------------------------
+func VCIConnectEvent() *fsmvci.BMSReConnectEvent {
 	return &fsmvci.BMSReConnectEvent{
 		TimeOutState:   uint32(RandValue(2)),
-		BmsTimeoutType: fsmvci.BMSTimeoutEnum(RandValue(7)+1),
+		BmsTimeoutType: fsmvci.BMSTimeoutEnum(RandValue(7) + 1),
 		ReconnectCnt:   uint32(RandValue(10)),
 		NextState:      uint32(RandValue(5)),
 	}
@@ -397,12 +446,13 @@ func VCIConnectEvent () *fsmvci.BMSReConnectEvent {
 
 /* Rt数据帧 END*/
 
-
-/* PMM 功率矩阵 START*/
+/* PMM 功率矩阵线程 START*/
 
 // PMMPowerMatrixLogin
-// 功率矩阵注册信息帧
-func PMMPowerMatrixLogin (state int) *fsmpmm.PowerMatrixLogin {
+// ----------------------------------------------------------------
+// 功率矩阵线程 注册信息帧 0x00
+// ----------------------------------------------------------------
+func PMMPowerMatrixLogin(state int) *fsmpmm.PowerMatrixLogin {
 	// 从config读取默认的配置信息
 	protocMap, err := ReadFile("./Conf/protoc.json", "PMM/Common")
 
@@ -428,8 +478,10 @@ func PMMPowerMatrixLogin (state int) *fsmpmm.PowerMatrixLogin {
 }
 
 // PMMADModuleLogin
-// 模块注册信息
-func PMMADModuleLogin (alarmList []*fsmpmm.ADModuleAlarm, alarmDataList []*fsmpmm.AlarmDataType) *fsmpmm.ADModuleLogin {
+// ----------------------------------------------------------------
+// 功率矩阵线程 模块注册信息 0x02
+// ----------------------------------------------------------------
+func PMMADModuleLogin(alarmList []*fsmpmm.ADModuleAlarm, alarmDataList []*fsmpmm.AlarmDataType) *fsmpmm.ADModuleLogin {
 	protocMap, err := ReadFile("./Conf/protoc.json", "PMM/Common")
 	var adModuleAmount uint32 = 0
 	if err == nil {
@@ -437,7 +489,7 @@ func PMMADModuleLogin (alarmList []*fsmpmm.ADModuleAlarm, alarmDataList []*fsmpm
 	}
 	adModuleAList := make([]*fsmpmm.ADModuleAttr, 0)
 	adModuleParam := make([]*fsmpmm.ADModuleParam, 0)
-	for i:=uint32(0); i<adModuleAmount; i++ {
+	for i := uint32(0); i < adModuleAmount; i++ {
 		adModuleAList = append(adModuleAList, PMMADModuleAttr(i))
 		adModuleParam = append(adModuleParam, PMMADModuleParam(i))
 	}
@@ -452,12 +504,11 @@ func PMMADModuleLogin (alarmList []*fsmpmm.ADModuleAlarm, alarmDataList []*fsmpm
 }
 
 // PMMADModuleAttr
-// 模块注册参数描述
-// 用于PMM主线程模块注册信息帧 (0x02)
-// ADModuleAList []*ADModuleAttr
-func PMMADModuleAttr (id uint32) *fsmpmm.ADModuleAttr {
-
-	protocMap, err := ReadFile("./conf/protoc.json", "PMM/ADModuleAttr")
+// ----------------------------------------------------------------
+// 功率矩阵线程 模块注册参数描述 (0x02)
+// ----------------------------------------------------------------
+func PMMADModuleAttr(id uint32) *fsmpmm.ADModuleAttr {
+	protocMap, err := ReadFile("./Conf/protoc.json", "PMM/ADModuleAttr")
 	DCModuleSN, SoftVersion, HardVersion := "", "", ""
 
 	if err == nil {
@@ -482,10 +533,10 @@ func PMMADModuleAttr (id uint32) *fsmpmm.ADModuleAttr {
 }
 
 // PMMADModuleParam
-// 模块运行实时参数（设备管理用）
-// 用于PMM主线程模块注册信息帧 (0x02)
-// ADModulePList []*ADModuleParam
-func PMMADModuleParam (id uint32) *fsmpmm.ADModuleParam {
+// ----------------------------------------------------------------
+// 功率矩阵线程 模块运行实时参数（设备管理用）(0x02)
+// ----------------------------------------------------------------
+func PMMADModuleParam(id uint32) *fsmpmm.ADModuleParam {
 	length := len(conf.Float32Value)
 	lengthUtiles := len(conf.Uint32Value)
 	return &fsmpmm.ADModuleParam{
@@ -519,11 +570,11 @@ func PMMADModuleParam (id uint32) *fsmpmm.ADModuleParam {
 }
 
 // PMMADModuleAlarm
-// 故障告警描述
-// 用于PMM主线程模块注册信息帧 (0x02)
-// AlarmList []*ADModuleAlarm
-func PMMADModuleAlarm (key int) *fsmpmm.ADModuleAlarm {
-	alarmTime :=time.Now().UnixMilli()
+// ----------------------------------------------------------------
+// 功率矩阵线程 故障告警描述 (0x02)
+// ----------------------------------------------------------------
+func PMMADModuleAlarm(key int) *fsmpmm.ADModuleAlarm {
+	alarmTime := time.Now().UnixMilli()
 	downTime, _ := time.ParseDuration("5s")
 	downTime1 := time.Now().Add(5 * downTime).UnixMilli()
 
@@ -536,10 +587,10 @@ func PMMADModuleAlarm (key int) *fsmpmm.ADModuleAlarm {
 }
 
 // PMMAlarmDataType
-// 复活告警信号描述
-// 用于PMM主线程模块注册信息帧 (0x02)
-// AlarmDataList []*AlarmDataType
-func PMMAlarmDataType (id uint32, key []int) *fsmpmm.AlarmDataType {
+// ----------------------------------------------------------------
+// 功率矩阵线程 复活告警信号描述 (0x02)
+// ----------------------------------------------------------------
+func PMMAlarmDataType(id uint32, key []int) *fsmpmm.AlarmDataType {
 	return &fsmpmm.AlarmDataType{
 		ID:           id,
 		AlarmState40: uint32(key[0]),
@@ -548,14 +599,16 @@ func PMMAlarmDataType (id uint32, key []int) *fsmpmm.AlarmDataType {
 	}
 }
 
-func PMMADModuleOnOffState () fsmpmm.ADModuleOnOffStateEnum {
+func PMMADModuleOnOffState() fsmpmm.ADModuleOnOffStateEnum {
 	state := RandValue(8)
 	return fsmpmm.ADModuleOnOffStateEnum(state)
 }
 
 // PMMHeartbeatReq
-// 心跳数据 0x04
-func PMMHeartbeatReq (hBeatCtr, interval uint32, cTime uint64, mainList []*fsmpmm.MainStatus,
+// ----------------------------------------------------------------
+// 功率矩阵线程 心跳数据 0x04
+// ----------------------------------------------------------------
+func PMMHeartbeatReq(hBeatCtr, interval uint32, cTime uint64, mainList []*fsmpmm.MainStatus,
 	matrixList []*fsmpmm.MatrixStatus, adModuleList []*fsmpmm.ADModuleAttr,
 	param []*fsmpmm.ADModuleParam, adModuleAlarm []*fsmpmm.ADModuleAlarm) *fsmpmm.PMMHeartbeatReq {
 	return &fsmpmm.PMMHeartbeatReq{
@@ -570,14 +623,16 @@ func PMMHeartbeatReq (hBeatCtr, interval uint32, cTime uint64, mainList []*fsmpm
 	}
 }
 
-/* PMM 功率矩阵 END*/
+/* PMM 功率矩阵线程 END*/
 
-/* PMM主接触器通讯帧 START */
+/* PMM主接触器线程 START */
 
 // PMMMainContactorHeartbeatReq
-// 心跳数据 0x06 alarmAnsList API传入
-func PMMMainContactorHeartbeatReq (id, hBeatCtr, interval uint32, cTime uint64,
-	mainMode fsmpmm.ContactorStateEnum, matrixId, adModelId []uint32  ) *fsmpmm.MainContactorHeartbeatReq {
+// ----------------------------------------------------------------
+// 心主接触器线程 跳数据 0x06 alarmAnsList由API传入
+// ----------------------------------------------------------------
+func PMMMainContactorHeartbeatReq(id, hBeatCtr, interval uint32, cTime uint64,
+	mainMode fsmpmm.ContactorStateEnum, matrixId, adModelId []uint32) *fsmpmm.MainContactorHeartbeatReq {
 	length := len(conf.Float32Value)
 	return &fsmpmm.MainContactorHeartbeatReq{
 		ID:           id,
@@ -587,15 +642,16 @@ func PMMMainContactorHeartbeatReq (id, hBeatCtr, interval uint32, cTime uint64,
 		BatVol:       conf.Float32Value[RandValue(length)],
 		ModVol:       conf.Float32Value[RandValue(length)],
 		MainMode:     mainMode,
-		//AlarmAnsList: alarmAnsList,
 		MatrixID:     matrixId,
 		ADModuleID:   adModelId,
 	}
 }
 
 // PMMMainContactorRTpush
+// ----------------------------------------------------------------
 // RT数据 （0x08）
-func PMMMainContactorRTpush (id, rtPushCtr, interval uint32,
+// ----------------------------------------------------------------
+func PMMMainContactorRTpush(id, rtPushCtr, interval uint32,
 	mainMode fsmpmm.ContactorStateEnum, mainAlarmList fsmpmm.FaultStopEnum) *fsmpmm.MainContactorRTpush {
 	return &fsmpmm.MainContactorRTpush{
 		ID:            id,
@@ -611,7 +667,9 @@ func PMMMainContactorRTpush (id, rtPushCtr, interval uint32,
 /* OHP订单流水线注册信息帧 START */
 
 // OHPOrderPipelineLogin
-// ohp 注册（0x00）
+// ----------------------------------------------------------------
+// ohp 注册 0x00
+// ----------------------------------------------------------------
 func OHPOrderPipelineLogin(state int) *fsmohp.OrderPipelineLogin {
 	protocMap, err := ReadFile("./Conf/protoc.json", "OHP/Common")
 	orderPipelineProtoVersion, orderPipelineVendor := "", ""
@@ -631,10 +689,12 @@ func OHPOrderPipelineLogin(state int) *fsmohp.OrderPipelineLogin {
 }
 
 // OHPOrderPipelineHeartbeatReq
-// ohp 心跳数据（0x02）
-func OHPOrderPipelineHeartbeatReq (hbeatCtr, interval uint32, cTime uint64,
+// ----------------------------------------------------------------
+// ohp 心跳数据 0x02
+// ----------------------------------------------------------------
+func OHPOrderPipelineHeartbeatReq(hbeatCtr, interval uint32, cTime uint64,
 	pipeLine []*fsmohp.OrderPipelineState, moduleLine []*fsmohp.SettlementModuleState,
-	) *fsmohp.OrderPipelineHeartbeatReq {
+) *fsmohp.OrderPipelineHeartbeatReq {
 
 	return &fsmohp.OrderPipelineHeartbeatReq{
 		HeartbeatCtr:      hbeatCtr,
@@ -648,8 +708,10 @@ func OHPOrderPipelineHeartbeatReq (hbeatCtr, interval uint32, cTime uint64,
 }
 
 // OrderPipelineState
-// ohp 心跳数据（0x02）PipelineState 流水线状态列表
-func OrderPipelineState (meterId uint32, moduleID []fsmohp.SettlementModuleEnum,
+// ----------------------------------------------------------------
+// ohp 心跳数据 (0x02) PipelineState 流水线状态列表
+// ----------------------------------------------------------------
+func OrderPipelineState(meterId uint32, moduleID []fsmohp.SettlementModuleEnum,
 	runningState *fsmohp.RuningOrderState) *fsmohp.OrderPipelineState {
 	alarmAnsList := make([]fsmohp.AlarmTypeEnum, 0)
 
@@ -662,20 +724,20 @@ func OrderPipelineState (meterId uint32, moduleID []fsmohp.SettlementModuleEnum,
 
 	ohpAlarm := []string{"ohp_alarm_model3", "ohp_alarm_model5"}
 	faultName := ohpAlarm[RandValue(2)]
-	listIndex := database.Redis.LLen(context.Background() ,faultName).Val()
-	intSlice, _  := Redis2Data(faultName, listIndex)
+	listIndex := database.Redis.LLen(context.Background(), faultName).Val()
+	intSlice, _ := Redis2Data(faultName, listIndex)
 
 	for _, v := range intSlice {
 		alarmAnsList = append(alarmAnsList, fsmohp.AlarmTypeEnum(v))
 	}
 
 	return &fsmohp.OrderPipelineState{
-		MeterID:           meterId,
-		ModuleIDSize:      uint32(len(moduleID)),
-		ModuleID:          moduleID,
-		OnLineState:       conf.BoolValue[RandValue(2)],
-		LockState:         conf.BoolValue[RandValue(2)],
-		RuningState:       runningState,
+		MeterID:      meterId,
+		ModuleIDSize: uint32(len(moduleID)),
+		ModuleID:     moduleID,
+		OnLineState:  conf.BoolValue[RandValue(2)],
+		LockState:    conf.BoolValue[RandValue(2)],
+		RuningState:  runningState,
 		MeterStateRefresh: &fsmohp.MeterState{
 			MeterWReadOut: conf.Float64Value[RandValue(length)],
 			MeterIReadOut: conf.Float64Value[RandValue(length)],
@@ -684,15 +746,15 @@ func OrderPipelineState (meterId uint32, moduleID []fsmohp.SettlementModuleEnum,
 			MeterCheck:    conf.BoolValue[RandValue(2)],
 			RefreshTime:   refreshTime,
 		},
-		AlarmAnsListSize:  uint32(len(alarmAnsList)),
-		AlarmAnsList:      alarmAnsList,
+		AlarmAnsListSize: uint32(len(alarmAnsList)),
+		AlarmAnsList:     alarmAnsList,
 	}
 }
 
 func RuningOrderState(moduleId int, uuid []uint64, runningRateList []*fsmohp.OrderRate) *fsmohp.RuningOrderState {
 	return &fsmohp.RuningOrderState{
-		ModuleID:           fsmohp.SettlementModuleEnum(moduleId),
-		OrderUUID:          &fsmohp.UUIDValue{
+		ModuleID: fsmohp.SettlementModuleEnum(moduleId),
+		OrderUUID: &fsmohp.UUIDValue{
 			Value0: uuid[0],
 			Value1: uuid[1],
 		},
@@ -704,8 +766,10 @@ func RuningOrderState(moduleId int, uuid []uint64, runningRateList []*fsmohp.Ord
 }
 
 // SettlementModuleState
-// ohp 心跳数据（0x02）ModuleState 订单结算通讯模块状态列表
-func SettlementModuleState (moduleId int32) *fsmohp.SettlementModuleState {
+// ----------------------------------------------------------------
+// ohp 心跳数据 (0x02) ModuleState 订单结算通讯模块状态列表
+// ----------------------------------------------------------------
+func SettlementModuleState(moduleId int32) *fsmohp.SettlementModuleState {
 	return &fsmohp.SettlementModuleState{
 		ModuleID:              fsmohp.SettlementModuleEnum(moduleId),
 		OffLineStrategy:       fsmohp.OrderStrategyEnum(RandValue(6) + 1),
@@ -717,10 +781,10 @@ func SettlementModuleState (moduleId int32) *fsmohp.SettlementModuleState {
 }
 
 // OHPOrderPipelineRTpush
-// ohp RT数据（0x04）
-func OHPOrderPipelineRTpush (meterID, rtPushCtr, interval uint32,
+// ohp RT数据 (0x04)
+func OHPOrderPipelineRTpush(meterID, rtPushCtr, interval uint32,
 	moduleID int, sysCtrlList *fsmohp.SysCtrlCmd,
-	) *fsmohp.OrderPipelineRTpush {
+) *fsmohp.OrderPipelineRTpush {
 
 	return &fsmohp.OrderPipelineRTpush{
 		MeterID:     meterID,
@@ -732,13 +796,12 @@ func OHPOrderPipelineRTpush (meterID, rtPushCtr, interval uint32,
 }
 
 // VCIPramInit
-// VCI gun config
-// 车桩交互模块当前配置（每一把枪）
-// 用于VCI主线程注册信息帧·响应 (0x80)
-// VCIPramList []*VCIPram
-func  VCIPramInit (gunId, auxType, elockEnable uint32, gunType int32) *fsmvci.VCIGunPrameters {
+// ----------------------------------------------------------------
+// 用于VCI Manager线程注册信息帧·响应 (0x80)
+// ----------------------------------------------------------------
+func VCIPramInit(gunId, auxType, elockEnable uint32, gunType int32) *fsmvci.VCIGunPrameters {
 
-	protocMap, err := ReadFile("./conf/protoc.json", "VCI/VCIPram")
+	protocMap, err := ReadFile("./Conf/protoc.json", "VCI/VCIPram")
 	var LimitI float32 = 0.0
 	var LimitV float32 = 0.0
 	var MaxP float32 = 0.0
@@ -760,13 +823,13 @@ func  VCIPramInit (gunId, auxType, elockEnable uint32, gunType int32) *fsmvci.VC
 }
 
 // SysParameterInit
-// System parater config
+// ----------------------------------------------------------------
 // 系统参数配置，从config文件中获取初始化信息
-// 用于VCI主线程注册信息帧·响应 (0x80)
-// SysParameterList *SysParameter
+// 用于VCI Manager线程注册信息帧·响应 (0x80)
+// ----------------------------------------------------------------
 func SysParameterInit() *fsmvci.VCISysParameters {
 
-	protocMap, err := ReadFile("./conf/protoc.json", "VCI/SysParameter")
+	protocMap, err := ReadFile("./Conf/protoc.json", "VCI/SysParameter")
 
 	var SysVolMax float32 = 0.0
 	var SysCurrMax float32 = 0.0
@@ -791,7 +854,9 @@ func SysParameterInit() *fsmvci.VCISysParameters {
 }
 
 // SysCtrlConnectStageInit
+// ----------------------------------------------------------------
 // 系统控制链接阶段初始化
+// ----------------------------------------------------------------
 func SysCtrlConnectStageInit() *fsmvci.SysCtrlConnectStage {
 	return &fsmvci.SysCtrlConnectStage{
 		ElockCmd:  1,
@@ -800,24 +865,12 @@ func SysCtrlConnectStageInit() *fsmvci.SysCtrlConnectStage {
 	}
 }
 
-// PluggedRecoverInit
-// 插枪线程恢复数据初始化
-// 用于VCI主线程注册信息帧·响应 (0x80)
-// PluggedList []*PluggedRecover
-/*func PluggedRecoverInit (GunId uint32, ChargerState, IsVINStart bool) *fsmvci.PluggedRecover {
-	return &fsmvci.PluggedRecover{
-		ID:           &fsmvci.Uint32Value{Value: GunId},
-		ChargerState: &fsmvci.BoolEnum{Value: ChargerState},
-		IsVINStart:   &fsmvci.BoolEnum{Value: IsVINStart},
-	}
-}*/
-
 // ChargingRecoverInit
-// 充电线程恢复数据初始化
-// 用于VCI主线程注册信息帧·响应 (0x80)
-// ChargingList []*ChargingRecover
+// ----------------------------------------------------------------
+// 用于VCI Manager线程注册信息帧·响应 (0x80)
 // TODO 初始化全面的数据详情
-func ChargingRecoverInit (gunId uint32) *fsmvci.ChargerRevive {
+// ----------------------------------------------------------------
+func ChargingRecoverInit(gunId uint32) *fsmvci.ChargerRevive {
 	return &fsmvci.ChargerRevive{
 		ChargerID:      gunId,
 		IsCharging:     1,
@@ -841,33 +894,48 @@ func ChargingRecoverInit (gunId uint32) *fsmvci.ChargerRevive {
 	}
 }
 
+// VCIChargerRegisterResponse
+// ----------------------------------------------------------------
+// VCI Charger线程的注册数据帧 0x81
+// ----------------------------------------------------------------
+func VCIChargerRegisterResponse(reConfirm, port uint32) *fsmvci.VCIChargerRegisterResponse {
+	return &fsmvci.VCIChargerRegisterResponse{
+		ReConfirm: reConfirm,
+		RePort:    port,
+		ReTime:    uint64(time.Now().UnixMilli()),
+	}
+}
 
 // FaultStateAtVCI
+// ----------------------------------------------------------------
 // 实例化故障基础类
-func FaultStateAtVCI (faultType, faultState int) *fsmvci.ChargerFaultState {
+// ----------------------------------------------------------------
+func FaultStateAtVCI(faultType, faultState int) *fsmvci.ChargerFaultState {
 	if faultType == 0 {
 		faultType = int(conf.VCIFaultList[RandValue(len(conf.VCIFaultList))])
 	}
 	if faultState == 0 {
-		faultState = RandValue(2)+1
+		faultState = RandValue(2) + 1
 	}
 
 	return &fsmvci.ChargerFaultState{
-		FaultType:		fsmvci.FaultEnum(faultType),
-		FaultState:		fsmvci.FaultState(faultState),
-		FaultRaiseTime:	uint64(time.Now().UnixMilli()),
-		FaultDownTime:	0,
+		FaultType:      fsmvci.FaultEnum(faultType),
+		FaultState:     fsmvci.FaultState(faultState),
+		FaultRaiseTime: uint64(time.Now().UnixMilli()),
+		FaultDownTime:  0,
 	}
 }
 
 // Redis2FaultVCI
+// ----------------------------------------------------------------
 // 从缓存中读取fault数据，并返回故障message的详情数据
 // @id message数据的id值
 // @faultName redis 存储的数据名称
 // @listIndex redis 存储数据中的下标
 // Todo 其他配置信息需要修改
-func Redis2FaultVCI (id, pushCnt, rtPeriod uint32, faultName string, listIndex int64) (*fsmvci.VCIChargerRTInfo, error)  {
-	intSlice, err  := Redis2Data(faultName, listIndex)
+// ----------------------------------------------------------------
+func Redis2FaultVCI(id, pushCnt, rtPeriod uint32, faultName string, listIndex int64) (*fsmvci.VCIChargerRTInfo, error) {
+	intSlice, err := Redis2Data(faultName, listIndex)
 	if err != nil {
 		return nil, errors.New("查询无数据，请查看Redis是否存在数据\n")
 	}
@@ -887,7 +955,7 @@ func Redis2FaultVCI (id, pushCnt, rtPeriod uint32, faultName string, listIndex i
 	}, nil
 }
 
-func Redis2Data (faultName string, listIndex int64) ([]int, error)  {
+func Redis2Data(faultName string, listIndex int64) ([]int, error) {
 
 	// 获取Redis中alarm的总长度
 	length := database.Redis.LLen(context.Background(), faultName).Val()
@@ -906,13 +974,14 @@ func Redis2Data (faultName string, listIndex int64) ([]int, error)  {
 	strSlice := strings.Split(str, ",")
 	// []string{} to []int{}
 	intSlice := StringArr2IntArr(strSlice)
-	return  intSlice, nil
+	return intSlice, nil
 }
 
 // PMMMainStatus
+// ----------------------------------------------------------------
 // 主接触器状态描述
-// TODO
-func PMMMainStatus (id uint32, matrixId, adModuleId []uint32, alarmAnsList []fsmpmm.FaultStopEnum) *fsmpmm.MainStatus {
+// ----------------------------------------------------------------
+func PMMMainStatus(id uint32, matrixId, adModuleId []uint32, alarmAnsList []fsmpmm.FaultStopEnum) *fsmpmm.MainStatus {
 	length := len(conf.Float32Value)
 
 	return &fsmpmm.MainStatus{
@@ -927,9 +996,10 @@ func PMMMainStatus (id uint32, matrixId, adModuleId []uint32, alarmAnsList []fsm
 }
 
 // PMMMatrixStatus
+// ----------------------------------------------------------------
 // 阵列接触器状态描述
-// TODO
-func PMMMatrixStatus (id uint32, alarmAnsList []fsmpmm.ArrayContactorAlarm) *fsmpmm.MatrixStatus {
+// ----------------------------------------------------------------
+func PMMMatrixStatus(id uint32, alarmAnsList []fsmpmm.ArrayContactorAlarm) *fsmpmm.MatrixStatus {
 	return &fsmpmm.MatrixStatus{
 		ID:           id,
 		MatrixMode:   fsmpmm.ContactorStateEnum(RandValue(8)),
@@ -938,11 +1008,12 @@ func PMMMatrixStatus (id uint32, alarmAnsList []fsmpmm.ArrayContactorAlarm) *fsm
 }
 
 // OHPSettlementModuleEnum
+// ----------------------------------------------------------------
 // 订单结算通讯模块枚举
-func OHPSettlementModuleEnum (settlementModule ...fsmohp.SettlementModuleEnum) (settlementModuleEnum []fsmohp.SettlementModuleEnum) {
+// ----------------------------------------------------------------
+func OHPSettlementModuleEnum(settlementModule ...fsmohp.SettlementModuleEnum) (settlementModuleEnum []fsmohp.SettlementModuleEnum) {
 	for _, v := range settlementModule {
 		settlementModuleEnum = append(settlementModuleEnum, v)
 	}
 	return
 }
-

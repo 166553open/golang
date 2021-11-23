@@ -5,7 +5,7 @@
 // source: GCU_FSM_VCI_v0.8.proto
 
 package fsmvci
-
+/*
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -4615,3 +4615,5 @@ func file_GCU_FSM_VCI_v0_8_proto_init() {
 	file_GCU_FSM_VCI_v0_8_proto_goTypes = nil
 	file_GCU_FSM_VCI_v0_8_proto_depIdxs = nil
 }
+
+*/

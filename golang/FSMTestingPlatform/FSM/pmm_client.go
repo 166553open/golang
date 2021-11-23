@@ -1,16 +1,6 @@
 package fsm
 
 import (
-	conf "FSMTestingPlatform/Conf"
-	"FSMTestingPlatform/Utils"
-	"FSMTestingPlatform/form"
-	"FSMTestingPlatform/protoc/fsmpmm"
-	"FSMTestingPlatform/udp"
-
-	"github.com/gin-gonic/gin"
-	"github.com/gin-gonic/gin/binding"
-	"github.com/gorilla/websocket"
-
 	"fmt"
 	"io"
 	"log"
@@ -20,66 +10,74 @@ import (
 	"strconv"
 	"sync"
 	"time"
+
+	conf "FSMTestingPlatform/Conf"
+	form "FSMTestingPlatform/Form"
+	"FSMTestingPlatform/Protoc/fsmpmm"
+	udp "FSMTestingPlatform/Udp"
+	"FSMTestingPlatform/Utils"
+
+	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
+	"github.com/gorilla/websocket"
 )
 
+// ThreadPMMList
+// ----------------------------------------------------------------
+// PMM结构体
+// ----------------------------------------------------------------
 type ThreadPMMList struct {
-	muThread sync.Mutex			// 互斥锁
-	MainLive bool				// 第一线程在在线状态
-	FatherLive bool				// 第二线程在线状态
+	muThread   sync.Mutex // 互斥锁
+	MainLive   bool       // 第一线程在在线状态
+	FatherLive bool       // 第二线程在线状态
 
-	ContactorState []uint32		// 主接触器状态
-	ADModuleOnOffState []uint32	// 模块状态
-	MatrixContactorState []uint32  // 阵列接触器状态
+	ContactorState       []uint32 // 主接触器状态
+	ADModuleOnOffState   []uint32 // 模块状态
+	MatrixContactorState []uint32 // 阵列接触器状态
 
 	Interval uint32
-	//MainChan chan *udp.Client	// 第一线程客户端消息管道
-	//FatherChan chan *udp.Client	// 第二线程客户端消息管道
 
-	MainThread *Thread			// 第一线程对象实体
-	FatherThread *Thread		// 第二线程对象实体
+	MainThread   *Thread // 第一线程对象实体
+	FatherThread *Thread // 第二线程对象实体
 }
 
-func NewThreadPMMList (main, father *Thread) *ThreadPMMList {
+// NewThreadPMMList
+// ----------------------------------------------------------------
+//	构建PMM结构体指针
+// ----------------------------------------------------------------
+func NewThreadPMMList(main, father *Thread) *ThreadPMMList {
 
-	contactorState := make([]uint32, 0)
-	adModuleOnOffState := make([]uint32, 0)
-	matrixContactorState := make([]uint32, 0)
-	//mainContactorAmount := conf.PMMContactorState
-	adModuleAmount := conf.PMMADModuleOnOffState
-	matrixContactorAmount := conf.PMMMatrixContactorState
+	contactorState := conf.PMMContactorState
 
-	matrixRand, adRand := 0, 0
 	// 随机从模块中取数据
-	adRand = Utils.RandValue(len(adModuleAmount))
-
+	adModuleOnOffState := conf.PMMADModuleOnOffState[:Utils.RandValue(len(conf.PMMADModuleOnOffState))]
 	// 随机从阵列接触器中取数据
-	matrixRand = Utils.RandValue(len(matrixContactorAmount))
+	matrixContactorState := conf.PMMMatrixContactorState[:Utils.RandValue(len(conf.PMMMatrixContactorState))]
 
-	contactorState = conf.PMMContactorState
-	adModuleOnOffState = adModuleAmount[:adRand]
-	matrixContactorState = adModuleAmount[:matrixRand]
 	return &ThreadPMMList{
-		muThread:    sync.Mutex{},
-		MainLive:    false,
-		FatherLive:  false,
-		ContactorState: contactorState,
-		ADModuleOnOffState: adModuleOnOffState,
+		muThread:             sync.Mutex{},
+		MainLive:             false,
+		FatherLive:           false,
+		ContactorState:       contactorState,
+		ADModuleOnOffState:   adModuleOnOffState,
 		MatrixContactorState: matrixContactorState,
-		Interval:	 200,
-		//MainChan:    make(chan *udp.Client),
-		//FatherChan:  make(chan *udp.Client),
-		MainThread:   main,
-		FatherThread: father,
+		Interval:             200,
+		MainThread:           main,
+		FatherThread:         father,
 	}
 }
 
-func ThreadPMMInit () *ThreadPMMList  {
+// ThreadPMMInit
+// ----------------------------------------------------------------
+// 初始化PMM结构体，返回其指针
+// ----------------------------------------------------------------
+func ThreadPMMInit() *ThreadPMMList {
 	addrMain := net.UDPAddr{
 		IP:   net.IPv4(0, 0, 0, 0),
 		Port: 9030,
 	}
 	addrFather := net.UDPAddr{
-		IP: net.IPv4(0, 0, 0 ,0),
+		IP:   net.IPv4(0, 0, 0, 0),
 		Port: 9040,
 	}
 	mainThread := NewThread(addrMain, 5)
@@ -88,17 +86,18 @@ func ThreadPMMInit () *ThreadPMMList  {
 	return NewThreadPMMList(mainThread, fatherThread)
 }
 
-// HeartBeat （HeartBeatForMain、HeartBeatForFather）
-// 检测工作线程、发送心跳数据
-
-func (t *ThreadPMMList) HeartBeatForMatrix (Id uint32, client *udp.Client) {
+// HeartBeatForMatrix
+// ----------------------------------------------------------------
+// 检测工作线程、定时发送PMM主线程的心跳
+// ----------------------------------------------------------------
+func (t *ThreadPMMList) HeartBeatForMatrix(Id uint32, client *udp.Client) {
 	for {
 		select {
 		case <-client.Timer.C:
 			// timer.C 管道类型数据。定时器功能，到指定时间会发出数据（time）。
 			// 触发消息之后，要重新赋值下次出发的时间
-			client.Timer = time.NewTimer(time.Duration(client.Interval)*time.Millisecond)
-			if _, ok :=  t.MainThread.WorkList[Id]; !ok {
+			client.Timer = time.NewTimer(time.Duration(client.Interval) * time.Millisecond)
+			if _, ok := t.MainThread.WorkList[Id]; !ok {
 				// 工作列表中不存在线程信息，心跳中止
 				goto HeartDie
 			}
@@ -106,18 +105,22 @@ func (t *ThreadPMMList) HeartBeatForMatrix (Id uint32, client *udp.Client) {
 			client.WriteMsg(0x04, t.PMMHeartbeatReqInit(Id, client))
 		}
 	}
-	HeartDie:
-		fmt.Printf("主接触器断开 %d 心跳被中止 \n", Id)
+HeartDie:
+	fmt.Printf("主接触器断开 %d 心跳被中止 \n", Id)
 }
 
-func (t *ThreadPMMList) HeartBeatForContactor (Id uint32, client *udp.Client) {
+// HeartBeatForContactor
+// --------------------------------------------------------------
+// 定时发送PMM父线程的心跳
+// --------------------------------------------------------------
+func (t *ThreadPMMList) HeartBeatForContactor(Id uint32, client *udp.Client) {
 	for {
 		select {
 		case <-client.Timer.C:
 			// timer.C 管道类型数据。定时器功能，到指定时间会发出数据（time）。
 			// 触发消息之后，要重新赋值下次出发的时间
-			client.Timer = time.NewTimer(time.Duration(client.Interval)*time.Millisecond)
-			if _, ok :=  t.FatherThread.WorkList[Id]; !ok {
+			client.Timer = time.NewTimer(time.Duration(client.Interval) * time.Millisecond)
+			if _, ok := t.FatherThread.WorkList[Id]; !ok {
 				// 工作列表中不存在线程信息，心跳中止
 				goto HeartDie
 			}
@@ -125,111 +128,15 @@ func (t *ThreadPMMList) HeartBeatForContactor (Id uint32, client *udp.Client) {
 			client.WriteMsg(0x06, t.MainContactorHeartbeatReqInit(Id, client, []int{}))
 		}
 	}
-	HeartDie:
-		fmt.Printf("主接触器断开 %d 心跳被中止 \n", Id)
+HeartDie:
+	fmt.Printf("主接触器断开 %d 心跳被中止 \n", Id)
 }
 
-
-func (t *ThreadPMMList) MatrixWS (c *gin.Context) {
-	// 升级HTTP链接至WebSocket
-	var upgrader = websocket.Upgrader{
-		CheckOrigin:       func(r *http.Request) bool {
-			return true
-		},
-	}
-	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
-	if err != nil {
-		log.Print("upgrade error :", err)
-		return
-	}
-
-	// 获取room参数，备后期需要
-	roomIdStr := c.Query("room")
-	roomId, _ := strconv.Atoi(roomIdStr)
-
-	// 发送测试数据
-	conn.WriteMessage(1, []byte("{\"成功\":\"hello\"}"))
-	if t.MainThread.WorkList[uint32(roomId)] == nil {
-		conn.WriteMessage(1, []byte("{\"失败\":\"内部错误, 无法识别枪线程\"}"))
-		conn.Close()
-		return
-	}
-
-	// 启用互斥锁
-	client := t.MainThread.WorkList[uint32(roomId)]
-	client.WSocket.Wsmu.Lock()
-
-	// 当前client下 所有的 websocket 链接
-	client.WSocket.WsConnList[conn.RemoteAddr().String()] = conn
-
-	// 当前client下 当前组的 websocket 链接
-	client.WSocket.WsRoom[roomId] = append(client.WSocket.WsRoom[roomId], conn.RemoteAddr().String())
-	client.WSocket.Wsmu.Unlock()
-	defer conn.Close()
-
-	for k, v := range t.MainThread.WorkList {
-		v.CheckWSMessage(int(k))
-	}
-}
-
-func (t *ThreadPMMList) ContactorWS (c *gin.Context) {
-	// 升级HTTP链接至WebSocket
-	var upgrader = websocket.Upgrader{
-		CheckOrigin:       func(r *http.Request) bool {
-			return true
-		},
-	}
-	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
-	if err != nil {
-		log.Print("upgrade error :", err)
-		return
-	}
-
-	// 获取room参数，备后期需要
-	roomIdStr := c.Query("room")
-	roomId, _ := strconv.Atoi(roomIdStr)
-
-	// 发送测试数据
-	conn.WriteMessage(1, []byte("{\"成功\":\"hello\"}"))
-	if t.FatherThread.WorkList[uint32(roomId)] == nil {
-		conn.WriteMessage(1, []byte("{\"失败\":\"内部错误, 无法识别枪线程\"}"))
-		conn.Close()
-		return
-	}
-
-	// 启用互斥锁
-	client := t.MainThread.WorkList[uint32(roomId)]
-	client.WSocket.Wsmu.Lock()
-
-	// 当前client下 所有的 websocket 链接
-	client.WSocket.WsConnList[conn.RemoteAddr().String()] = conn
-
-	// 当前client下 当前组的 websocket 链接
-	client.WSocket.WsRoom[roomId] = append(client.WSocket.WsRoom[roomId], conn.RemoteAddr().String())
-	client.WSocket.Wsmu.Unlock()
-	defer conn.Close()
-
-	for k, v := range t.MainThread.WorkList {
-		v.CheckWSMessage(int(k))
-	}
-}
-
-
-// 中间件 跨域会先发送 option
-// TODO vue axios 跨域会先发送一次 OPTION 请求，通过后再正常发起交互
-//
-func middlewarePost1(c *gin.Context) {
-	fmt.Println(c.Request.Method)
-	if c.Request.Method == "options" {
-		c.JSON(http.StatusOK, gin.H{
-			"code" : 0,
-			"msg" : "next",
-		})
-	}
-	c.Next()
-}
-
-func (t *ThreadPMMList) RecvCommand (r *gin.Engine) {
+// RecvCommand
+// ----------------------------------------------------------------
+// 定义Http接口，外部通过API修改线程内部状态
+// ----------------------------------------------------------------
+func (t *ThreadPMMList) RecvCommand(r *gin.Engine) {
 	// 输出gin日志到 gin_PMM 文件
 	logfile, err := os.Create("./gin_PMM.log")
 	if err != nil {
@@ -269,6 +176,102 @@ func (t *ThreadPMMList) RecvCommand (r *gin.Engine) {
 
 /*接口区域 START*/
 
+// MatrixWS
+// --------------------------------------------------------------
+//	主线程的websocket接口
+// --------------------------------------------------------------
+func (t *ThreadPMMList) MatrixWS(c *gin.Context) {
+	// 升级HTTP链接至WebSocket
+	var upgrader = websocket.Upgrader{
+		CheckOrigin: func(r *http.Request) bool {
+			return true
+		},
+	}
+	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	if err != nil {
+		log.Print("upgrade error :", err)
+		return
+	}
+
+	// 获取room参数，备后期需要
+	roomIdStr := c.Query("room")
+	roomId, _ := strconv.Atoi(roomIdStr)
+
+	// 发送测试数据
+	conn.WriteMessage(1, []byte("{\"成功\":\"hello\"}"))
+	if t.MainThread.WorkList[uint32(roomId)] == nil {
+		conn.WriteMessage(1, []byte("{\"失败\":\"内部错误, 无法识别枪线程\"}"))
+		conn.Close()
+		return
+	}
+
+	// 启用互斥锁
+	client := t.MainThread.WorkList[uint32(roomId)]
+	client.WSocket.Wsmu.Lock()
+
+	// 当前client下 所有的 websocket 链接
+	client.WSocket.WsConnList[conn.RemoteAddr().String()] = conn
+
+	// 当前client下 当前组的 websocket 链接
+	client.WSocket.WsRoom[roomId] = append(client.WSocket.WsRoom[roomId], conn.RemoteAddr().String())
+	client.WSocket.Wsmu.Unlock()
+	defer conn.Close()
+
+	for k, v := range t.MainThread.WorkList {
+		v.CheckWSMessage(int(k))
+	}
+}
+
+// ContactorWS
+// --------------------------------------------------------------
+//	父线程的websocket的接口
+// --------------------------------------------------------------
+func (t *ThreadPMMList) ContactorWS(c *gin.Context) {
+	// 升级HTTP链接至WebSocket
+	var upgrader = websocket.Upgrader{
+		CheckOrigin: func(r *http.Request) bool {
+			return true
+		},
+	}
+	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	if err != nil {
+		log.Print("upgrade error :", err)
+		return
+	}
+
+	// 获取room参数，备后期需要
+	roomIdStr := c.Query("room")
+	roomId, _ := strconv.Atoi(roomIdStr)
+
+	// 发送测试数据
+	conn.WriteMessage(1, []byte("{\"成功\":\"hello\"}"))
+	if t.FatherThread.WorkList[uint32(roomId)] == nil {
+		conn.WriteMessage(1, []byte("{\"失败\":\"内部错误, 无法识别枪线程\"}"))
+		conn.Close()
+		return
+	}
+
+	// 启用互斥锁
+	client := t.MainThread.WorkList[uint32(roomId)]
+	client.WSocket.Wsmu.Lock()
+
+	// 当前client下 所有的 websocket 链接
+	client.WSocket.WsConnList[conn.RemoteAddr().String()] = conn
+
+	// 当前client下 当前组的 websocket 链接
+	client.WSocket.WsRoom[roomId] = append(client.WSocket.WsRoom[roomId], conn.RemoteAddr().String())
+	client.WSocket.Wsmu.Unlock()
+	defer conn.Close()
+
+	for k, v := range t.MainThread.WorkList {
+		v.CheckWSMessage(int(k))
+	}
+}
+
+// buildMatrixHttp
+// ----------------------------------------------------------------
+// 创建PMM主线程
+// ----------------------------------------------------------------
 func (t *ThreadPMMList) buildMatrixHttp(c *gin.Context) {
 	// 识别参数ID
 	var contactor = &form.PMMRegister{}
@@ -278,22 +281,22 @@ func (t *ThreadPMMList) buildMatrixHttp(c *gin.Context) {
 	// 异常数据场景 信息返回前端
 	if len(t.MainThread.WorkList) == 1 {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"code":1,
-			"msg": "线程达到上限",
+			"code": 1,
+			"msg":  "线程达到上限",
 		})
 		return
 	}
 	if _, ok := t.MainThread.WorkList[id]; ok {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"code":1,
-			"msg": "线程冲突",
+			"code": 1,
+			"msg":  "线程冲突",
 		})
 		return
 	}
 	if _, ok := t.MainThread.AmountList[id]; !ok {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"code":1,
-			"msg": "未识别接触器Id",
+			"code": 1,
+			"msg":  "未识别接触器Id",
 		})
 		return
 	}
@@ -313,19 +316,22 @@ func (t *ThreadPMMList) buildMatrixHttp(c *gin.Context) {
 	go t.HeartBeatForMatrix(id, t.MainThread.WorkList[id])
 
 	c.JSON(http.StatusOK, gin.H{
-		"code":0,
-		"msg":"success",
+		"code": 0,
+		"msg":  "success",
 	})
 }
 
-
+// registerMatrixPower
+// ----------------------------------------------------------------
+// 发送功率矩阵注册信息帧
+// ----------------------------------------------------------------
 func (t *ThreadPMMList) registerMatrixPower(c *gin.Context) {
 	pmmRegisterPower := form.PMMRegisterPower{}
 	err := c.ShouldBindBodyWith(&pmmRegisterPower, binding.JSON)
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"code":1,
-			"msg":"数据解析错误：" + err.Error(),
+			"code": 1,
+			"msg":  "数据解析错误：" + err.Error(),
 		})
 		return
 	}
@@ -333,8 +339,8 @@ func (t *ThreadPMMList) registerMatrixPower(c *gin.Context) {
 	client, ok := t.MainThread.WorkList[pmmRegisterPower.Id]
 	if !ok {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"code":1,
-			"msg":"没有处在工作中的线程",
+			"code": 1,
+			"msg":  "没有处在工作中的线程",
 		})
 		return
 	}
@@ -342,26 +348,30 @@ func (t *ThreadPMMList) registerMatrixPower(c *gin.Context) {
 	client.WriteMsg(0x00, powerMatrixLogin)
 
 	c.JSON(http.StatusOK, gin.H{
-		"code":0,
-		"msg":"success",
+		"code": 0,
+		"msg":  "success",
 	})
 }
 
+// registerADModel
+// ----------------------------------------------------------------
+// 模块注册信息帧
+// ----------------------------------------------------------------
 func (t *ThreadPMMList) registerADModel(c *gin.Context) {
 	pmmRegisterAdModule := form.PMMRegisterAdModule{}
 	err := c.ShouldBindBodyWith(&pmmRegisterAdModule, binding.JSON)
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"code":1,
-			"msg":"数据解析错误：" + err.Error(),
+			"code": 1,
+			"msg":  "数据解析错误：" + err.Error(),
 		})
 		return
 	}
 	client, ok := t.MainThread.WorkList[pmmRegisterAdModule.Id]
 	if !ok {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"code":1,
-			"msg":"没有处在工作中的线程",
+			"code": 1,
+			"msg":  "没有处在工作中的线程",
 		})
 		return
 	}
@@ -385,88 +395,99 @@ func (t *ThreadPMMList) registerADModel(c *gin.Context) {
 		}
 		alarmLength = pmmRegisterAdModule.AlarmLength
 
-		for i:=0; i<alarmLength; i++ {
+		for i := 0; i < alarmLength; i++ {
 			alarmList = append(alarmList, Utils.PMMADModuleAlarm(i))
-			Utils.PMMAlarmDataType(uint32(Utils.RandValue(6) + 1), alarmKey)
+			Utils.PMMAlarmDataType(uint32(Utils.RandValue(6)+1), alarmKey)
 		}
 	}
 	adModuleLogin := Utils.PMMADModuleLogin(alarmList, alarmDataList)
 	client.WriteMsg(0x02, adModuleLogin)
 
 	c.JSON(http.StatusOK, gin.H{
-		"code":0,
-		"msg":"success",
+		"code": 0,
+		"msg":  "success",
 	})
 }
 
+// registerHeartBeat
+// ----------------------------------------------------------------
+// 发送主线程心跳帧
+// ----------------------------------------------------------------
 func (t *ThreadPMMList) registerHeartBeat(c *gin.Context) {
 	heatBeat := form.PMMRegisterHeartBeat{}
 	err := c.ShouldBindBodyWith(&heatBeat, binding.JSON)
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"code":1,
-			"msg":"数据解析错误:" + err.Error(),
+			"code": 1,
+			"msg":  "数据解析错误:" + err.Error(),
 		})
 		return
 	}
+	t.muThread.Lock()
+	defer t.muThread.Unlock()
 	client, ok := t.MainThread.WorkList[heatBeat.Id]
 	if !ok {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"code":1,
-			"msg":"没有处于工作中的线程",
+			"code": 1,
+			"msg":  "没有处于工作中的线程",
 		})
 		return
 	}
 
-	t.muThread.Lock()
 	if heatBeat.Interval > 0 {
 		client.Interval = heatBeat.Interval
 	}
 	client.HeartbeatCtr = heatBeat.HeartbeatCtr
-	t.muThread.Unlock()
 
 	client.WriteMsg(0x04, t.PMMHeartbeatReqInit(heatBeat.Id, client))
 	c.JSON(http.StatusOK, gin.H{
-		"code":0,
-		"msg":"success",
+		"code": 0,
+		"msg":  "success",
 	})
 }
 
-// 动态修改心跳时间
-func (t *ThreadPMMList) changeRegister (c *gin.Context) {
+// changeRegister
+// ----------------------------------------------------------------
+// 修改PMM主线程的心跳状态
+// ----------------------------------------------------------------
+func (t *ThreadPMMList) changeRegister(c *gin.Context) {
 	// 获取并绑定网络传输的数据
-	pmmConfig :=  form.PMMConfig{}
+	pmmConfig := form.PMMConfig{}
 	c.ShouldBindBodyWith(&pmmConfig, binding.JSON)
 
 	if pmmConfig.Interval == 0 {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"code":1,
-			"msg":"心跳间隔时间不能为零",
+			"code": 1,
+			"msg":  "心跳间隔时间不能为零",
 		})
 		return
 	}
+	t.muThread.Lock()
+	defer t.muThread.Unlock()
 	client, ok := t.MainThread.WorkList[pmmConfig.Id]
 	if !ok {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"code":1,
-			"msg":"没有处在工作中的线程",
+			"code": 1,
+			"msg":  "没有处在工作中的线程",
 		})
 		return
 	}
 	// 修改所有工作中线程的间隔时长
-	client.Mu.Lock()
 	client.Interval = pmmConfig.Interval
 	if pmmConfig.HeartbeatCtr > 0 {
 		client.HeartbeatCtr = pmmConfig.HeartbeatCtr
 	}
-	client.Mu.Unlock()
 
 	c.JSON(http.StatusOK, gin.H{
-		"code":0,
-		"msg":"修改成功",
+		"code": 0,
+		"msg":  "修改成功",
 	})
 }
 
+// deleteMatrixHttp
+// ----------------------------------------------------------------
+// 删除PMM主线程
+// ----------------------------------------------------------------
 func (t *ThreadPMMList) deleteMatrixHttp(c *gin.Context) {
 	// 识别参数ID
 	var contactor = &form.PMMRegister{}
@@ -476,8 +497,8 @@ func (t *ThreadPMMList) deleteMatrixHttp(c *gin.Context) {
 	// 异常数据场景 信息返回前端
 	if _, ok := t.MainThread.WorkList[id]; !ok {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"code":1,
-			"msg":"未识别枪体",
+			"code": 1,
+			"msg":  "未识别枪体",
 		})
 		return
 	}
@@ -492,12 +513,15 @@ func (t *ThreadPMMList) deleteMatrixHttp(c *gin.Context) {
 	}
 	t.muThread.Unlock()
 	c.JSON(http.StatusOK, gin.H{
-		"code":0,
-		"msg":"success",
+		"code": 0,
+		"msg":  "success",
 	})
 }
 
+// buildContactorHttp
+// ----------------------------------------------------------------
 // 创建第二线程的工作线程，最多可创建六个工作线程。由前端参数决定将要建立的线程ID
+// ----------------------------------------------------------------
 func (t *ThreadPMMList) buildContactorHttp(c *gin.Context) {
 	// 识别参数ID
 	var pmmRegister = &form.PMMRegister{}
@@ -507,22 +531,22 @@ func (t *ThreadPMMList) buildContactorHttp(c *gin.Context) {
 	// 异常数据场景 信息返回前端
 	if len(t.FatherThread.WorkList) == 6 {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"code":1,
-			"msg": "线程达到上限",
+			"code": 1,
+			"msg":  "线程达到上限",
 		})
 		return
 	}
 	if _, ok := t.FatherThread.WorkList[id]; ok {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"code":1,
-			"msg": "线程冲突",
+			"code": 1,
+			"msg":  "线程冲突",
 		})
 		return
 	}
 	if _, ok := t.FatherThread.AmountList[id]; !ok {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"code":1,
-			"msg": "未识别枪体",
+			"code": 1,
+			"msg":  "未识别枪体",
 		})
 		return
 	}
@@ -542,26 +566,30 @@ func (t *ThreadPMMList) buildContactorHttp(c *gin.Context) {
 	go t.HeartBeatForContactor(id, t.FatherThread.WorkList[id])
 
 	c.JSON(http.StatusOK, gin.H{
-		"code":0,
-		"msg":"success",
+		"code": 0,
+		"msg":  "success",
 	})
 }
 
+// contactorHeartBeat
+// ----------------------------------------------------------------
+// 发送PMM第二线程的心跳数据
+// ----------------------------------------------------------------
 func (t *ThreadPMMList) contactorHeartBeat(c *gin.Context) {
 	hbeart := form.PMMContactorHeartBeat{}
 	err := c.ShouldBindBodyWith(&hbeart, binding.JSON)
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"code":1,
-			"msg":"数据解析错误：" + err.Error(),
+			"code": 1,
+			"msg":  "数据解析错误：" + err.Error(),
 		})
 		return
 	}
 	client, ok := t.FatherThread.WorkList[hbeart.Id]
 	if !ok {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"code":1,
-			"msg":"没有处于工作中的线程",
+			"code": 1,
+			"msg":  "没有处于工作中的线程",
 		})
 		return
 	}
@@ -581,52 +609,59 @@ func (t *ThreadPMMList) contactorHeartBeat(c *gin.Context) {
 	t.muThread.Unlock()
 	client.WriteMsg(0x06, t.MainContactorHeartbeatReqInit(hbeart.Id, client, alarmList))
 	c.JSON(http.StatusOK, gin.H{
-		"code":0,
-		"msg":"success",
+		"code": 0,
+		"msg":  "success",
 	})
 }
 
+// contactorRT
+// ----------------------------------------------------------------
+// 修改PMM第二线程的RT状态
+// ----------------------------------------------------------------
 func (t *ThreadPMMList) contactorRT(c *gin.Context) {
 	pmmContactorRT := form.PMMContactorRT{}
 	err := c.ShouldBindBodyWith(&pmmContactorRT, binding.JSON)
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"code":1,
-			"msg":"数据解析错误：" + err.Error(),
+			"code": 1,
+			"msg":  "数据解析错误：" + err.Error(),
 		})
 	}
 	client, ok := t.FatherThread.WorkList[pmmContactorRT.Id]
 	if !ok {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"code":1,
-			"msg":"没有处于工作中的线程",
+			"code": 1,
+			"msg":  "没有处于工作中的线程",
 		})
 		return
 	}
 
 	client.WriteMsg(0x08, t.MainContactorRTpushInit(pmmContactorRT.Id))
 	c.JSON(http.StatusOK, gin.H{
-		"code":0,
-		"msg":"success",
+		"code": 0,
+		"msg":  "success",
 	})
 }
 
-// 动态修改心跳时间
-func (t *ThreadPMMList) changeContact (c *gin.Context) {
+// changeContact
+// ----------------------------------------------------------------
+// 修改PMM第二线程的心跳状态
+// ----------------------------------------------------------------
+func (t *ThreadPMMList) changeContact(c *gin.Context) {
 	pmmBeat := form.PMMContactorHeartBeat{}
 	c.ShouldBindBodyWith(&pmmBeat, binding.JSON)
 
 	if pmmBeat.Interval == 0 {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"code":1,
-			"msg":"心跳间隔时间不能为零",
+			"code": 1,
+			"msg":  "心跳间隔时间不能为零",
 		})
 		return
 	}
 	if len(t.FatherThread.WorkList) == 0 {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"code":1,
-			"msg":"没有处在工作中的线程",
+			"code": 1,
+			"msg":  "没有处在工作中的线程",
 		})
 		return
 	}
@@ -634,8 +669,8 @@ func (t *ThreadPMMList) changeContact (c *gin.Context) {
 	if !ok {
 		if pmmBeat.Id != 0 {
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-				"code":1,
-				"msg":"未识别的线程ID",
+				"code": 1,
+				"msg":  "未识别的线程ID",
 			})
 			return
 		}
@@ -648,8 +683,8 @@ func (t *ThreadPMMList) changeContact (c *gin.Context) {
 			v.Mu.Unlock()
 		}
 		c.JSON(http.StatusOK, gin.H{
-			"code":0,
-			"msg":"修改成功",
+			"code": 0,
+			"msg":  "修改成功",
 		})
 		return
 
@@ -661,21 +696,25 @@ func (t *ThreadPMMList) changeContact (c *gin.Context) {
 	}
 	client.Mu.Unlock()
 	c.JSON(http.StatusOK, gin.H{
-		"code":0,
-		"msg":"修改成功",
+		"code": 0,
+		"msg":  "修改成功",
 	})
 	return
 }
 
-func (t *ThreadPMMList) changeRTContact (c *gin.Context) {
-	pmmRTInfo :=  form.PMMRTInfo{}
+// changeContact
+// ----------------------------------------------------------------
+// 修改PMM第二线程的RT状态
+// ----------------------------------------------------------------
+func (t *ThreadPMMList) changeRTContact(c *gin.Context) {
+	pmmRTInfo := form.PMMRTInfo{}
 	c.ShouldBindBodyWith(&pmmRTInfo, binding.JSON)
 
 	err := pmmRTInfo.VerifyVCIRTInfo()
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"code":1,
-			"msg":err.Error(),
+			"code": 1,
+			"msg":  err.Error(),
 		})
 		return
 	}
@@ -684,8 +723,8 @@ func (t *ThreadPMMList) changeRTContact (c *gin.Context) {
 	defer t.muThread.Unlock()
 	if _, ok := t.FatherThread.WorkList[pmmRTInfo.Id]; !ok {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"code":1,
-			"msg":"未识别枪体Id",
+			"code": 1,
+			"msg":  "未识别枪体Id",
 		})
 		return
 	}
@@ -703,11 +742,15 @@ func (t *ThreadPMMList) changeRTContact (c *gin.Context) {
 	t.FatherThread.WorkList[pmmRTInfo.Id].Interval = pmmRTInfo.Interval
 
 	c.JSON(http.StatusOK, gin.H{
-		"code":0,
-		"msg":"修改成功",
+		"code": 0,
+		"msg":  "修改成功",
 	})
 }
 
+// deleteContactorHttp
+// ----------------------------------------------------------------
+// 删除PMM第二线程
+// ----------------------------------------------------------------
 func (t *ThreadPMMList) deleteContactorHttp(c *gin.Context) {
 	// 识别参数ID
 	var pmmRegister = &form.PMMRegister{}
@@ -717,13 +760,11 @@ func (t *ThreadPMMList) deleteContactorHttp(c *gin.Context) {
 	// 异常数据场景 信息返回前端
 	if _, ok := t.FatherThread.WorkList[id]; !ok {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"code":1,
-			"msg":"未识别枪体",
+			"code": 1,
+			"msg":  "未识别枪体",
 		})
 		return
 	}
-	//don't close the udp conn
-	//t.MainThread.WorkList[VCIGun.Gun].Conn.Close()
 
 	// 数据值通过验证。启用互斥锁，防止并发
 	t.muThread.Lock()
@@ -735,8 +776,8 @@ func (t *ThreadPMMList) deleteContactorHttp(c *gin.Context) {
 	t.muThread.Unlock()
 
 	c.JSON(http.StatusOK, gin.H{
-		"code":0,
-		"msg":"success",
+		"code": 0,
+		"msg":  "success",
 	})
 }
 
@@ -745,16 +786,18 @@ func (t *ThreadPMMList) deleteContactorHttp(c *gin.Context) {
 /*功能区 START*/
 
 // PowerMatrixLoginInit
-// 功率矩阵注册信息帧(0x00)
-// Init
+// ----------------------------------------------------------------
+// 初始化功率矩阵注册信息帧(0x00)
+// ----------------------------------------------------------------
 func (t *ThreadPMMList) PowerMatrixLoginInit(state int) *fsmpmm.PowerMatrixLogin {
-
 	return Utils.PMMPowerMatrixLogin(state)
 }
 
 // ADModuleLoginInit
+// ----------------------------------------------------------------
 // 模块注册信息(0x02)
-func (t *ThreadPMMList) ADModuleLoginInit () *fsmpmm.ADModuleLogin {
+// ----------------------------------------------------------------
+func (t *ThreadPMMList) ADModuleLoginInit() *fsmpmm.ADModuleLogin {
 
 	adModuleAlarmList := make([]*fsmpmm.ADModuleAlarm, 0)
 
@@ -772,13 +815,15 @@ func (t *ThreadPMMList) ADModuleLoginInit () *fsmpmm.ADModuleLogin {
 	}
 
 	alarmDataTypeList := make([]*fsmpmm.AlarmDataType, 0)
-	alarmDataTypeList = append(alarmDataTypeList, Utils.PMMAlarmDataType(uint32(Utils.RandValue(6) + 1), alarmKey))
+	alarmDataTypeList = append(alarmDataTypeList, Utils.PMMAlarmDataType(uint32(Utils.RandValue(6)+1), alarmKey))
 	return Utils.PMMADModuleLogin(adModuleAlarmList, alarmDataTypeList)
 }
 
 // PMMHeartbeatReqInit
-// 心跳状态同步(0x04)
-func (t *ThreadPMMList) PMMHeartbeatReqInit (id uint32, client *udp.Client) *fsmpmm.PMMHeartbeatReq {
+// -----------------------------------------------------------------
+// 初始化心跳状态同步(0x04)
+// -----------------------------------------------------------------
+func (t *ThreadPMMList) PMMHeartbeatReqInit(id uint32, client *udp.Client) *fsmpmm.PMMHeartbeatReq {
 	client.HeartbeatCtr++
 	heartBeat := client.HeartbeatCtr
 	//
@@ -794,7 +839,6 @@ func (t *ThreadPMMList) PMMHeartbeatReqInit (id uint32, client *udp.Client) *fsm
 	alarmArray := make([]fsmpmm.ArrayContactorAlarm, 0)
 
 	t.muThread.Lock()
-
 
 	// 随机从Redis下标
 	alarmName := conf.PMMRedisListNameAlarm[Utils.RandValue(2)]
@@ -813,15 +857,13 @@ func (t *ThreadPMMList) PMMHeartbeatReqInit (id uint32, client *udp.Client) *fsm
 	t.muThread.Unlock()
 
 	//
-	MatrixStatus := Utils.PMMMatrixStatus(1, alarmArray)
-	//
-	matrixStatusList = append(matrixStatusList, MatrixStatus)
+	matrixStatusList = append(matrixStatusList, Utils.PMMMatrixStatus(1, alarmArray))
 	//
 	adModuleAList = append(adModuleAList, Utils.PMMADModuleAttr(id))
 	//
 	adModulePList = append(adModulePList, Utils.PMMADModuleParam(id))
 	//
-	for i:=0; i< len(mainStatusList); i++  {
+	for i := 0; i < len(mainStatusList); i++ {
 		adModuleOnOffState = append(adModuleOnOffState, Utils.PMMADModuleOnOffState())
 	}
 
@@ -831,10 +873,12 @@ func (t *ThreadPMMList) PMMHeartbeatReqInit (id uint32, client *udp.Client) *fsm
 }
 
 // MainContactorHeartbeatReqInit
+// -----------------------------------------------------------------
 // 主接触器线程心跳周期信息帧(0x06)
-func (t *ThreadPMMList) MainContactorHeartbeatReqInit (id uint32, client *udp.Client, alarmAns []int) *fsmpmm.MainContactorHeartbeatReq {
+// -----------------------------------------------------------------
+func (t *ThreadPMMList) MainContactorHeartbeatReqInit(id uint32, client *udp.Client, alarmAns []int) *fsmpmm.MainContactorHeartbeatReq {
 	t.FatherThread.WorkList[id].HeartbeatCtr++
-	hbeatCtr :=t.FatherThread.WorkList[id].HeartbeatCtr
+	hbeatCtr := t.FatherThread.WorkList[id].HeartbeatCtr
 	cTime := uint64(time.Now().UnixMilli())
 
 	mainMode := Utils.RandValue(8)
@@ -846,8 +890,10 @@ func (t *ThreadPMMList) MainContactorHeartbeatReqInit (id uint32, client *udp.Cl
 }
 
 // MainContactorRTpushInit
+// -----------------------------------------------------------------
 // 主接触器线程突发上传信息帧(0x08)
-func (t *ThreadPMMList) MainContactorRTpushInit (id uint32) *fsmpmm.MainContactorRTpush {
+// -----------------------------------------------------------------
+func (t *ThreadPMMList) MainContactorRTpushInit(id uint32) *fsmpmm.MainContactorRTpush {
 	client := t.FatherThread.WorkList[id]
 	client.RTpushCtr++
 
@@ -857,12 +903,16 @@ func (t *ThreadPMMList) MainContactorRTpushInit (id uint32) *fsmpmm.MainContacto
 	return Utils.PMMMainContactorRTpush(id, client.RTpushCtr, t.Interval, fsmpmm.ContactorStateEnum(state), fsmpmm.FaultStopEnum(fault))
 }
 
+// RtStart
+// ----------------------------------------------------------------
+// 修改第二线程的RT状态
+// -----------------------------------------------------------------
 func (t *ThreadPMMList) RtStart() {
 	// 指针
 	for {
 		select {
 		case <-t.FatherThread.RtTimer.C:
-			t.FatherThread.RtTimer = time.NewTimer(time.Duration(t.FatherThread.RtMessageInterval)*time.Millisecond)
+			t.FatherThread.RtTimer = time.NewTimer(time.Duration(t.FatherThread.RtMessageInterval) * time.Millisecond)
 			for k, _ := range t.FatherThread.WorkList {
 				if t.FatherThread.RtMessageList[k] {
 					t.FatherThread.WorkList[k].WriteMsg(0x08, t.MainContactorRTpushInit(k))
@@ -874,4 +924,3 @@ func (t *ThreadPMMList) RtStart() {
 }
 
 /*功能区 END*/
-

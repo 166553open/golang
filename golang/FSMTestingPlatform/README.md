@@ -13,28 +13,29 @@
 │   └── table_struct.go
 ├── Form            /* 存放API（HTTP）接口的参数 */
 │   ├── ohp.go          
-│   └── pmm.go  
+│   ├── pmm.go  
 │   └── vci.go 
 ├── FSM             /* 存放FSM的测试代码 */
 │   ├── ohp_client.go           /* OHP客户端的业务逻辑 */
 │   ├── pmm_client.go           /* PMM客户端的业务逻辑 */
-│   └── udp_server.go           /* 模拟FSM转发数据逻辑 */
+│   ├── udp_server.go           /* 模拟FSM转发数据逻辑 */
 │   └── vci_client.go           /* VCI客户端的业务逻辑 */
 ├── Pool            /* TCP、UDP链接池 */
 │   ├── pool.go
-│   └── udp_pool.go           
+│   └── udp_pool.go   
+├── Proto            /* 存放protoc文件 */
 ├── Protoc          /* 存放模块之间的通信协议 */
 │   ├── fsmohp
-│   |    ├── GCU_FSM_OHP_v0.1.pb.go
-│   |    └── GCU_FSM_OHP_v0.2.pb.go
+│   │    ├── GCU_FSM_OHP_v0.1.pb.go
+│   │    └── GCU_FSM_OHP_v0.2.pb.go
 │   ├── fsmpmm
-│   |    ├── GCU_FSM_PMM_v0.2.pb.go
-│   |    ├── GCU_FSM_PMM_v0.3.pb.go
-│   |    └── GCU_FSM_PMM_v0.4.pb.go
+│   │    ├── GCU_FSM_PMM_v0.2.pb.go
+│   │    ├── GCU_FSM_PMM_v0.3.pb.go
+│   │    └── GCU_FSM_PMM_v0.4.pb.go
 │   ├── fsmvci
-│   |    ├── GCU_FSM_VCI_v0.2.pb.go
-│   |    ├── GCU_FSM_VCI_v0.4.pb.go
-│   |    └── GCU_FSM_VCI_v0.6.pb.go
+│   │    ├── GCU_FSM_VCI_v0.2.pb.go
+│   │    ├── GCU_FSM_VCI_v0.4.pb.go
+│   │    └── GCU_FSM_VCI_v0.6.pb.go
 ├── Upd             /* 存放以UDP协议为基础构建的Client、Server基类 */
 │   ├── client.go
 │   └── server.go
@@ -224,7 +225,7 @@
 
 ### 1.2. 充电线程（Charge Thread）
 
-#### 1.2.1 接口地址 127.0.0.1:10001/api/v1/vci-charge/build
+#### 1.2.1 接口地址 127.0.0.1:10001/api/v1/vci-charger/build
 
 ##### 接口描述 创建充电线程
 
@@ -271,7 +272,7 @@
 
 
 
-#### 1.2.2 接口地址 127.0.0.1:10001/api/v1/vci-charge/change-interval
+#### 1.2.2 接口地址 127.0.0.1:10001/api/v1/vci-charger/change-interval
 
 ##### 接口描述 修改充电线程发送心跳数据的间隔
 
@@ -305,7 +306,7 @@
 
 
 
-#### 1.2.3 接口地址 127.0.0.1:10001/api/v1/vci-charge/change-rtstatus
+#### 1.2.3 接口地址 127.0.0.1:10001/api/v1/vci-charger/change-rtstatus
 
 ##### 接口描述 修改充电线程RT数据
 
@@ -344,7 +345,7 @@
 
 
 
-#### 1.2.4 接口地址 127.0.0.1:10001/api/v1/vci-charge/delete
+#### 1.2.4 接口地址 127.0.0.1:10001/api/v1/vci-charger/delete
 
 ##### 接口描述 删除充电线程
 

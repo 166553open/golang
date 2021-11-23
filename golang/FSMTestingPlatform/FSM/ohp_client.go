@@ -1,48 +1,63 @@
 package fsm
 
 import (
-	conf "FSMTestingPlatform/Conf"
-	"FSMTestingPlatform/Utils"
-	"FSMTestingPlatform/form"
-	"FSMTestingPlatform/protoc/fsmohp"
-	"FSMTestingPlatform/udp"
 	"fmt"
-	"github.com/gin-gonic/gin"
-	"github.com/gin-gonic/gin/binding"
-	"github.com/google/uuid"
 	"io"
 	"net"
 	"net/http"
 	"os"
 	"sync"
 	"time"
+
+	conf "FSMTestingPlatform/Conf"
+	form "FSMTestingPlatform/Form"
+	"FSMTestingPlatform/Protoc/fsmohp"
+	udp "FSMTestingPlatform/Udp"
+	"FSMTestingPlatform/Utils"
+
+	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
+	"github.com/google/uuid"
 )
 
+// ThreadOHPList
+// ----------------------------------------------------------------
+// OHP结构体
+// ----------------------------------------------------------------
 type ThreadOHPList struct {
-	muThread sync.Mutex				// 互斥锁
-	MainLive bool					// 第一线程在线状态
-	UUID  []uint64					// 订单UUID
-	FeeRate map[uint32]float64		// 分时费率
-	MainChan chan *udp.Client		// 第一线程的管道
-	MainThread *Thread				// 第一线程对象实体
+	muThread   sync.Mutex         // 互斥锁
+	MainLive   bool               // 第一线程在线状态
+	UUID       []uint64           // 订单UUID
+	FeeRate    map[uint32]float64 // 分时费率
+	MainChan   chan *udp.Client   // 第一线程的管道
+	MainThread *Thread            // 第一线程对象实体
 }
 
-func NewThreadOHPList (main *Thread) *ThreadOHPList {
+// NewThreadOHPList
+// ----------------------------------------------------------------
+// 构建OHP结构体指针
+// ----------------------------------------------------------------
+func NewThreadOHPList(main *Thread) *ThreadOHPList {
 	uuid, err := uuid.NewUUID()
 	if err != nil {
 		fmt.Printf("uuid created error:%s\n", err.Error())
 	}
 	return &ThreadOHPList{
-		muThread:	sync.Mutex{},
-		MainLive:	false,
-		MainChan:	make(chan *udp.Client),
-		MainThread:	main,
-		UUID: uuidToUint64(uuid),
+		muThread:   sync.Mutex{},
+		MainLive:   false,
+		MainChan:   make(chan *udp.Client),
+		MainThread: main,
+		UUID:       uuidToUint64(uuid),
 	}
 
 }
 
-func ThreadOHPInit () *ThreadOHPList  {
+// ThreadOHPInit
+// ----------------------------------------------------------------
+// 初始化OHP结构体，返回其指针
+// TODO address 写入json
+// ----------------------------------------------------------------
+func ThreadOHPInit() *ThreadOHPList {
 	addrMain := net.UDPAddr{
 		IP:   net.IPv4(0, 0, 0, 0),
 		Port: 9050,
@@ -51,14 +66,17 @@ func ThreadOHPInit () *ThreadOHPList  {
 	return NewThreadOHPList(mainThread)
 }
 
-
-func (t *ThreadOHPList) HeartForMain (id uint32, client *udp.Client) {
+// HeartForMain
+// ----------------------------------------------------------------
+// 检测工作线程、定时发送OHP主线程的心跳
+// ----------------------------------------------------------------
+func (t *ThreadOHPList) HeartForMain(id uint32, client *udp.Client) {
 	for {
 		select {
 		case <-client.Timer.C:
 			// timer.C 管道类型数据。定时器功能，到指定时间会发出数据（time）。
 			// 触发消息之后，要重新赋值下次出发的时间
-			client.Timer = time.NewTimer(time.Duration(client.Interval)*time.Millisecond)
+			client.Timer = time.NewTimer(time.Duration(client.Interval) * time.Millisecond)
 			if _, ok := t.MainThread.WorkList[id]; !ok {
 				// 工作列表中不存在线程信息，心跳中止
 				goto HeartDie
@@ -67,11 +85,14 @@ func (t *ThreadOHPList) HeartForMain (id uint32, client *udp.Client) {
 			client.WriteMsg(0x00, t.OrderPipelineHeartbeatReqInit(id, client))
 		}
 	}
-	HeartDie:
-		fmt.Printf("订单管线线程断开 %d 心跳被中止 \n", id)
+HeartDie:
+	fmt.Printf("订单管线线程断开 %d 心跳被中止 \n", id)
 }
 
-
+// RtStart
+// ----------------------------------------------------------------
+// 定时发OHP的RT数据
+// ----------------------------------------------------------------
 func (t *ThreadOHPList) RtStart() {
 	// 指针
 	for {
@@ -87,7 +108,11 @@ func (t *ThreadOHPList) RtStart() {
 	}
 }
 
-func (t *ThreadOHPList) RecvCommand (r *gin.Engine) {
+// RecvCommand
+// ----------------------------------------------------------------
+// 定义Http接口，外部通过API修改线程内部状态
+// ----------------------------------------------------------------
+func (t *ThreadOHPList) RecvCommand(r *gin.Engine) {
 
 	// 输出gin日志到 gin_http 文件
 	logfile, err := os.Create("./gin_OHP.log")
@@ -102,8 +127,8 @@ func (t *ThreadOHPList) RecvCommand (r *gin.Engine) {
 	{
 		v1.GET("ping", func(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{
-				"code":"0",
-				"msg":"pong",
+				"code": "0",
+				"msg":  "pong",
 			})
 		})
 		order := v1.Group("/ohp-order")
@@ -117,14 +142,18 @@ func (t *ThreadOHPList) RecvCommand (r *gin.Engine) {
 	}
 }
 
-func (t *ThreadOHPList) buildOrderHttp (c *gin.Context) {
+// buildOrderHttp
+// ----------------------------------------------------------------
+// 创建OHP线程
+// ----------------------------------------------------------------
+func (t *ThreadOHPList) buildOrderHttp(c *gin.Context) {
 	// 识别参数数据
 	var order form.OHPConfig
 	err := c.ShouldBindBodyWith(&order, binding.JSON)
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"code":1,
-			"msg":"数据解析错误:" + err.Error(),
+			"code": 1,
+			"msg":  "数据解析错误:" + err.Error(),
 		})
 		return
 	}
@@ -132,15 +161,15 @@ func (t *ThreadOHPList) buildOrderHttp (c *gin.Context) {
 	// 异常数据场景 消息发送前端
 	if _, ok := t.MainThread.AmountList[order.Id]; !ok {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"code":1,
-			"msg":"未定义识别电表Id",
+			"code": 1,
+			"msg":  "未定义识别电表Id",
 		})
 		return
 	}
 	if _, ok := t.MainThread.WorkList[order.Id]; ok {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"code":1,
-			"msg":"线程冲突",
+			"code": 1,
+			"msg":  "线程冲突",
 		})
 		return
 	}
@@ -152,26 +181,29 @@ func (t *ThreadOHPList) buildOrderHttp (c *gin.Context) {
 	}
 	// 从全局udp列表 COPY 到 work udp列表中
 	t.MainThread.WorkList[order.Id] = t.MainThread.AmountList[order.Id]
-	//TODO send Register
-	//t.MainThread.WorkList[meter.Id].WriteMsg()
+	t.MainThread.WorkList[order.Id].WriteMsg(0x00, t.OHPOrderPipelineLogin(1))
 
 	t.muThread.Unlock()
 	go t.HeartForMain(order.Id, t.MainThread.WorkList[order.Id])
 	go t.MainThread.AmountList[order.Id].ReadMsg()
 	c.JSON(http.StatusOK, gin.H{
-		"code":0,
-		"msg":"success",
+		"code": 0,
+		"msg":  "success",
 	})
 }
 
-func (t *ThreadOHPList) registerOrderPipeline (c *gin.Context) {
+// registerOrderPipeline
+// ----------------------------------------------------------------
+// 发送OHP的注册消息
+// ----------------------------------------------------------------
+func (t *ThreadOHPList) registerOrderPipeline(c *gin.Context) {
 	// 识别参数数据
 	var register form.OHPRegister
 	err := c.ShouldBindBodyWith(&register, binding.JSON)
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"code":1,
-			"msg":"数据解析错误:" + err.Error(),
+			"code": 1,
+			"msg":  "数据解析错误:" + err.Error(),
 		})
 		return
 	}
@@ -179,35 +211,39 @@ func (t *ThreadOHPList) registerOrderPipeline (c *gin.Context) {
 	client, ok := t.MainThread.WorkList[register.Id]
 	if !ok {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"code":1,
-			"msg":"未定义识别电表Id",
+			"code": 1,
+			"msg":  "未定义识别电表Id",
 		})
 		return
 	}
 
 	client.WriteMsg(0x00, t.OHPOrderPipelineLogin(register.State))
 	c.JSON(http.StatusOK, gin.H{
-		"code":0,
-		"msg":"success",
+		"code": 0,
+		"msg":  "success",
 	})
 }
 
-func (t *ThreadOHPList) heartOrderPipeline (c *gin.Context) {
+// heartOrderPipeline
+// ----------------------------------------------------------------
+// 修改OHP的心跳状态
+// ----------------------------------------------------------------
+func (t *ThreadOHPList) heartOrderPipeline(c *gin.Context) {
 	// 识别参数数据
 	var heatBeat form.OHPHeartBeat
 	err := c.ShouldBindBodyWith(&heatBeat, binding.JSON)
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"code":1,
-			"msg":"数据解析错误:" + err.Error(),
+			"code": 1,
+			"msg":  "数据解析错误:" + err.Error(),
 		})
 		return
 	}
 	client, ok := t.MainThread.WorkList[heatBeat.Id]
 	if !ok {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"code":1,
-			"msg":"没有处于工作中的线程",
+			"code": 1,
+			"msg":  "没有处于工作中的线程",
 		})
 		return
 	}
@@ -221,21 +257,24 @@ func (t *ThreadOHPList) heartOrderPipeline (c *gin.Context) {
 
 	client.WriteMsg(0x02, t.OrderPipelineHeartbeatReqInit(heatBeat.Id, client))
 	c.JSON(http.StatusOK, gin.H{
-		"code":0,
-		"msg":"success",
+		"code": 0,
+		"msg":  "success",
 	})
 }
 
-// 动态修改 vci RTTime消息类型的状态
-func (t *ThreadOHPList) changeRTStatus (c *gin.Context) {
-	ohpRTInfo :=  form.OHPRTInfo{}
+// changeRTStatus
+// ----------------------------------------------------------------
+// 修改OHP的RT数据状态
+// ----------------------------------------------------------------
+func (t *ThreadOHPList) changeRTStatus(c *gin.Context) {
+	ohpRTInfo := form.OHPRTInfo{}
 	c.ShouldBindBodyWith(&ohpRTInfo, binding.JSON)
 
 	err := ohpRTInfo.VerifyVCIRTInfo()
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"code":1,
-			"msg":err.Error(),
+			"code": 1,
+			"msg":  err.Error(),
 		})
 		return
 	}
@@ -244,8 +283,8 @@ func (t *ThreadOHPList) changeRTStatus (c *gin.Context) {
 	defer t.muThread.Unlock()
 	if _, ok := t.MainThread.WorkList[ohpRTInfo.GunId]; !ok {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"code":1,
-			"msg":"未识别枪体Id",
+			"code": 1,
+			"msg":  "未识别枪体Id",
 		})
 		return
 	}
@@ -263,12 +302,16 @@ func (t *ThreadOHPList) changeRTStatus (c *gin.Context) {
 	t.MainThread.WorkList[ohpRTInfo.GunId].Interval = ohpRTInfo.HeartBeatPeriod
 
 	c.JSON(http.StatusOK, gin.H{
-		"code":0,
-		"msg":"修改成功",
+		"code": 0,
+		"msg":  "修改成功",
 	})
 }
 
-func (t *ThreadOHPList) deleteOrderHttp (c *gin.Context) {
+// deleteOrderHttp
+// ----------------------------------------------------------------
+// 删除OHP线程
+// ----------------------------------------------------------------
+func (t *ThreadOHPList) deleteOrderHttp(c *gin.Context) {
 	// 识别参数数据
 	var order form.OHPConfig
 	c.ShouldBindBodyWith(&order, binding.JSON)
@@ -276,8 +319,8 @@ func (t *ThreadOHPList) deleteOrderHttp (c *gin.Context) {
 	// 异常数据场景 消息发送前端
 	if _, ok := t.MainThread.WorkList[order.Id]; !ok {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"code":1,
-			"msg":"未定义识别电表Id",
+			"code": 1,
+			"msg":  "未定义识别电表Id",
 		})
 		return
 	}
@@ -290,22 +333,24 @@ func (t *ThreadOHPList) deleteOrderHttp (c *gin.Context) {
 	}
 	t.muThread.Unlock()
 	c.JSON(http.StatusOK, gin.H{
-		"code":0,
-		"msg":"success",
+		"code": 0,
+		"msg":  "success",
 	})
 }
 
-
-
 // OHPOrderPipelineLogin
-// 注册数据帧
+// ----------------------------------------------------------------
+// 创建OHP的注册数据帧 0x00
+// ----------------------------------------------------------------
 func (t *ThreadOHPList) OHPOrderPipelineLogin(state int) *fsmohp.OrderPipelineLogin {
 	return Utils.OHPOrderPipelineLogin(state)
 }
 
 // OrderPipelineHeartbeatReqInit
-// OHP订单流水线心跳周期信息帧 0x02
-func (t *ThreadOHPList) OrderPipelineHeartbeatReqInit (id uint32, client *udp.Client) *fsmohp.OrderPipelineHeartbeatReq {
+// ----------------------------------------------------------------
+// 创建OHP的心跳周期信息帧 0x02
+// ----------------------------------------------------------------
+func (t *ThreadOHPList) OrderPipelineHeartbeatReqInit(id uint32, client *udp.Client) *fsmohp.OrderPipelineHeartbeatReq {
 	client.HeartbeatCtr++
 	hbeatCtr := uint32(client.HeartbeatCtr)
 	interval := client.Interval
@@ -329,8 +374,11 @@ func (t *ThreadOHPList) OrderPipelineHeartbeatReqInit (id uint32, client *udp.Cl
 	return Utils.OHPOrderPipelineHeartbeatReq(hbeatCtr, interval, cTime, pipeLine, moduleStateList)
 }
 
-// OrderPipelineRTpushInit 0x04
-func (t *ThreadOHPList) OrderPipelineRTpushInit (meterId uint32, moduleID int, client *udp.Client) *fsmohp.OrderPipelineRTpush {
+// OrderPipelineRTpushInit
+// ----------------------------------------------------------------
+// 创建OHP的RT周期信息帧 0x04
+// ----------------------------------------------------------------
+func (t *ThreadOHPList) OrderPipelineRTpushInit(meterId uint32, moduleID int, client *udp.Client) *fsmohp.OrderPipelineRTpush {
 	client.RTpushCtr++
 	rtPushCtr := client.RTpushCtr
 	interval := client.Interval
@@ -340,9 +388,12 @@ func (t *ThreadOHPList) OrderPipelineRTpushInit (meterId uint32, moduleID int, c
 }
 
 // getSysCtrlList
+// ----------------------------------------------------------------
 // state=1 开机
 // state=2 关机
 // todo 开机、关机同时发送
+// OrderPipelineRTpushInit
+// ----------------------------------------------------------------
 func (t *ThreadOHPList) getSysCtrlList(id uint32, state int) *fsmohp.SysCtrlCmd {
 	if state > 0 {
 		return &fsmohp.SysCtrlCmd{
@@ -353,13 +404,17 @@ func (t *ThreadOHPList) getSysCtrlList(id uint32, state int) *fsmohp.SysCtrlCmd 
 		}
 	}
 	return &fsmohp.SysCtrlCmd{
-		ID:        id,
-		StopCmd:   true,
-		ElockCmd:  conf.BoolValue[Utils.RandValue(2)],
+		ID:       id,
+		StopCmd:  true,
+		ElockCmd: conf.BoolValue[Utils.RandValue(2)],
 	}
 }
 
-func uuidToUint64 (bytes uuid.UUID) []uint64 {
+// uuidToUint64
+// ----------------------------------------------------------------
+// 创建uuid
+// ----------------------------------------------------------------
+func uuidToUint64(bytes uuid.UUID) []uint64 {
 	bytes1 := bytes[:8]
 	bytes2 := bytes[8:]
 	uuid1 := uint64(bytes1[0]) | uint64(bytes1[1])<<8 | uint64(bytes1[2])<<16 | uint64(bytes1[3])<<24 | uint64(bytes1[4])<<32 | uint64(bytes1[5])<<40 | uint64(bytes1[6])<<48 | uint64(bytes1[7])<<56

@@ -1,24 +1,26 @@
 package tcp
 
 import (
-	"TestingPlatform/Utils"
 	"bufio"
 	"fmt"
-	"github.com/golang/protobuf/proto"
 	"net"
 	"os"
 	"strings"
 	"sync"
+
+	"FSMTestingPlatform/Utils"
+
+	"github.com/golang/protobuf/proto"
 )
 
 type Server struct {
-	mu sync.Mutex
-	Ip string
-	Port int
+	mu      sync.Mutex
+	Ip      string
+	Port    int
 	clients map[string]net.Conn
 }
 
-func NewServer (ip string, prot int) *Server {
+func NewServer(ip string, prot int) *Server {
 	return &Server{
 		Ip:      ip,
 		Port:    prot,
@@ -26,8 +28,8 @@ func NewServer (ip string, prot int) *Server {
 	}
 }
 
-func (s *Server) Listen () (net.Listener, error) {
-	lister , err := net.Listen("tcp", fmt.Sprintf(":%d", s.Port))
+func (s *Server) Listen() (net.Listener, error) {
+	lister, err := net.Listen("tcp", fmt.Sprintf(":%d", s.Port))
 	if err != nil {
 		fmt.Println("this server start listen error:", err)
 		return nil, err
@@ -35,23 +37,23 @@ func (s *Server) Listen () (net.Listener, error) {
 	return lister, nil
 }
 
-func (s *Server) ConnectConn (conn net.Conn) {
+func (s *Server) ConnectConn(conn net.Conn) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.clients[conn.RemoteAddr().String()] = conn
-//	conn.Write(Utils.EnCode("aa", "hello"))
+	//	conn.Write(Utils.EnCode("aa", "hello"))
 }
 
-func (s *Server) UnConnectConn (conn net.Conn) {
+func (s *Server) UnConnectConn(conn net.Conn) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.clients, conn.RemoteAddr().String())
 	conn.Close()
 }
 
-func (s *Server) ReadMsg (conn  net.Conn) {
+func (s *Server) ReadMsg(conn net.Conn) {
 	buff := make([]byte, 1024)
-	for{
+	for {
 		n, err := conn.Read(buff)
 		if n == 0 {
 			fmt.Println("client leave:", conn.RemoteAddr().String())
@@ -64,7 +66,7 @@ func (s *Server) ReadMsg (conn  net.Conn) {
 			break
 		}
 
-		msgProto , err := Utils.DeCodeByProto(s.Port, buff)
+		msgProto, err := Utils.DeCodeByProto(s.Port, buff)
 		if err != nil {
 			return
 		}
@@ -72,7 +74,7 @@ func (s *Server) ReadMsg (conn  net.Conn) {
 	}
 }
 
-func (s *Server) WriteMsg (conn net.Conn, msgTypeCode uint, msg proto.Message) {
+func (s *Server) WriteMsg(conn net.Conn, msgTypeCode uint, msg proto.Message) {
 	bytes, err := Utils.EnCodeByProto(msgTypeCode, msg)
 	if err != nil {
 		fmt.Printf("Protoc.Marshal is error : %s\n", err.Error())
@@ -85,7 +87,7 @@ func (s *Server) WriteMsg (conn net.Conn, msgTypeCode uint, msg proto.Message) {
 	}
 }
 
-func (s *Server) ConnWrite () {
+func (s *Server) ConnWrite() {
 	// 读取命令行输入
 	inputReader := bufio.NewReader(os.Stdin)
 	for {
@@ -102,7 +104,7 @@ func (s *Server) ConnWrite () {
 	}
 }
 
-func test () {
+func test() {
 	server := NewServer("127.0.0.1", 5000)
 	listen, err := server.Listen()
 	if err != nil {

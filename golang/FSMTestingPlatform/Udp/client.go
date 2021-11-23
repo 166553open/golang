@@ -1,13 +1,6 @@
 package udp
 
 import (
-	database "FSMTestingPlatform/Database"
-	"FSMTestingPlatform/Utils"
-	"FSMTestingPlatform/pool"
-	"FSMTestingPlatform/protoc/fsmohp"
-	"FSMTestingPlatform/protoc/fsmpmm"
-	"FSMTestingPlatform/protoc/fsmvci"
-
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -18,59 +11,81 @@ import (
 	"sync"
 	"time"
 
+	database "FSMTestingPlatform/Database"
+	pool "FSMTestingPlatform/Pool"
+	"FSMTestingPlatform/Protoc/fsmohp"
+	"FSMTestingPlatform/Protoc/fsmpmm"
+	"FSMTestingPlatform/Protoc/fsmvci"
+	"FSMTestingPlatform/Utils"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/gorilla/websocket"
 )
 
+// Client
+// ----------------------------------------------------------------------------
+// Client结构体
+// ----------------------------------------------------------------------------
 type Client struct {
-	Mu sync.Mutex
-	ConnRemotePort int			// 远端（服务端）端口号
-	ConnType string				// 链接类型 VCI PMM OHP
-	Interval uint32				// 数据间隔时长
-	HeartbeatCtr int64			// 心跳计数
-	RTpushCtr	uint32			// 推送计数
-	//CurrentTime uint64			// 当前时间戳
-	WsMessageChan chan []byte	// websocket 消息管道
+	Mu             sync.Mutex
+	ConnRemotePort int         // 远端（服务端）端口号
+	ConnType       string      // 链接类型 VCI PMM OHP
+	Interval       uint32      // 数据间隔时长
+	HeartbeatCtr   int64       // 心跳计数
+	RTpushCtr      uint32      // 推送计数
+	WsMessageChan  chan []byte // websocket 消息管道
 
-	RegisterMessageChan		map[uint]*RegisterMessageChan  // 注册 消息管道 消息暂存地址
-	HeartBeatMessageChan	map[uint]*HeartBeatMessageChan // 心跳 消息管道 消息暂存地址
-	RealTimeMessageChan 	map[uint]*RealTimeMessageChan  // realtime 消息管道 消息暂存地址
+	RegisterMessageChan  map[uint]*RegisterMessageChan  // 注册 消息管道 消息暂存地址
+	HeartBeatMessageChan map[uint]*HeartBeatMessageChan // 心跳 消息管道 消息暂存地址
+	RealTimeMessageChan  map[uint]*RealTimeMessageChan  // realtime 消息管道 消息暂存地址
 
-	WSocket *Wsocket			// WS对象
-	Conn *net.UDPConn			// UDP链接
-	Timer *time.Timer			// 定时计数器
+	WSocket *Wsocket     // WS对象
+	Conn    *net.UDPConn // UDP链接
+	Timer   *time.Timer  // 定时计数器
 }
 
+// RegisterMessageChan
+// ----------------------------------------------------------------------------
 // RegisterMessageChan 注册消息 暂存地址
+// ----------------------------------------------------------------------------
 type RegisterMessageChan struct {
-	SendRegisterChan proto.Message		// 发送的数据内容
-	SendRegisterTime int64				// 存储时间
+	SendRegisterChan proto.Message // 发送的数据内容
+	SendRegisterTime int64         // 存储时间
 }
 
-// HeartBeatMessageChan 注册消息 暂存地址
+// HeartBeatMessageChan
+// -----------------------------------------------------------------------------
+// HeartBeatMessageChan 心跳消息 暂存地址
+// -----------------------------------------------------------------------------
 type HeartBeatMessageChan struct {
-	SendHeartBeatChan proto.Message		// 发送的数据内容
-	SendHeartBeatTime int64				// 存储时间
+	SendHeartBeatChan proto.Message // 发送的数据内容
+	SendHeartBeatTime int64         // 存储时间
 }
 
-// RealTimeMessageChan 注册消息 暂存地址
+// RealTimeMessageChan
+// ----------------------------------------------------------------------------
+// RT消息 暂存地址
+// ----------------------------------------------------------------------------
 type RealTimeMessageChan struct {
-	SendRealTimeChan proto.Message		// 发送的数据内容
-	SendRealTimeTime int64				// 存储时间
+	SendRealTimeChan proto.Message // 发送的数据内容
+	SendRealTimeTime int64         // 存储时间
 }
 
-// Wsocket web socket 数据接收
+// Wsocket
+// ----------------------------------------------------------------------------
+// websocket 结构体
+// ----------------------------------------------------------------------------
 type Wsocket struct {
-	Wsmu sync.Mutex
-	WsRoom map[int][]string					//WebSocket 分组
-	WsConnList map[string]*websocket.Conn	//WebSocket链接
+	Wsmu       sync.Mutex
+	WsRoom     map[int][]string           //WebSocket 分组
+	WsConnList map[string]*websocket.Conn //WebSocket链接
 }
 
 // NewRegisterMessageRam
-// ----------------------------------------------------------------
-// 初始化注册消息的暂存地址
-// ----------------------------------------------------------------
-func NewRegisterMessageRam () *RegisterMessageChan {
+// ----------------------------------------------------------------------------
+// 构建注册消息的暂存地址
+// ----------------------------------------------------------------------------
+func NewRegisterMessageRam() *RegisterMessageChan {
 	var protoMsg proto.Message
 	return &RegisterMessageChan{
 		SendRegisterChan: protoMsg,
@@ -79,10 +94,10 @@ func NewRegisterMessageRam () *RegisterMessageChan {
 }
 
 // NewHeartBeatMessageRam
-// ----------------------------------------------------------------
-// 初始化心跳消息的暂存地址
-// ----------------------------------------------------------------
-func NewHeartBeatMessageRam () *HeartBeatMessageChan {
+// ----------------------------------------------------------------------------
+// 构建心跳消息的暂存地址
+// ----------------------------------------------------------------------------
+func NewHeartBeatMessageRam() *HeartBeatMessageChan {
 	var protoMsg proto.Message
 	return &HeartBeatMessageChan{
 		SendHeartBeatChan: protoMsg,
@@ -91,10 +106,10 @@ func NewHeartBeatMessageRam () *HeartBeatMessageChan {
 }
 
 // NewRealTimeMessageRam
-// ----------------------------------------------------------------
-// 初始化RT消息的暂存地址
-// ----------------------------------------------------------------
-func NewRealTimeMessageRam () *RealTimeMessageChan {
+// ----------------------------------------------------------------------------
+// 构建RT消息的暂存地址
+// ----------------------------------------------------------------------------
+func NewRealTimeMessageRam() *RealTimeMessageChan {
 	var protoMsg proto.Message
 	return &RealTimeMessageChan{
 		SendRealTimeChan: protoMsg,
@@ -102,13 +117,13 @@ func NewRealTimeMessageRam () *RealTimeMessageChan {
 	}
 }
 
-// NewClient
-// ----------------------------------------------------------------
-// 返回Client指针
-// ----------------------------------------------------------------
-func NewClient (pool *pool.UDPpool) (*Client, error) {
+// NewClient return *Client
+// ----------------------------------------------------------------------------
+// 构建Client，返回其指针
+// ----------------------------------------------------------------------------
+func NewClient(pool *pool.UDPpool) (*Client, error) {
 	Wsocket := &Wsocket{
-		WsRoom: make(map[int][]string, 0),
+		WsRoom:     make(map[int][]string, 0),
 		WsConnList: make(map[string]*websocket.Conn),
 	}
 	udpConn, err := pool.Open()
@@ -143,22 +158,21 @@ func NewClient (pool *pool.UDPpool) (*Client, error) {
 	}
 
 	client := &Client{
-		ConnRemotePort: serverPortInt,
-		ConnType: connType,
-		Conn : udpConn,
-		Interval:1000,
-		HeartbeatCtr: 0,
-		RTpushCtr: 0,
-		WsMessageChan: make(chan []byte),
-		RegisterMessageChan: make(map[uint]*RegisterMessageChan),
+		ConnRemotePort:       serverPortInt,
+		ConnType:             connType,
+		Conn:                 udpConn,
+		Interval:             1000,
+		HeartbeatCtr:         0,
+		RTpushCtr:            0,
+		WsMessageChan:        make(chan []byte),
+		RegisterMessageChan:  make(map[uint]*RegisterMessageChan),
 		HeartBeatMessageChan: make(map[uint]*HeartBeatMessageChan),
-		RealTimeMessageChan: make(map[uint]*RealTimeMessageChan),
-		WSocket: Wsocket,
-		//CurrentTime: uint64(time.Now().UnixMilli()),
-		Timer: time.NewTimer(1000*time.Millisecond),
+		RealTimeMessageChan:  make(map[uint]*RealTimeMessageChan),
+		WSocket:              Wsocket,
+		Timer:                time.NewTimer(1000 * time.Millisecond),
 	}
 
-	if  _, ok := vciPort[serverPortInt]; ok {
+	if _, ok := vciPort[serverPortInt]; ok {
 
 		// 注册信息帧
 		registerMessageChan := NewRegisterMessageRam()
@@ -219,12 +233,12 @@ func NewClient (pool *pool.UDPpool) (*Client, error) {
 }
 
 // ReadMsg  Client
-// ----------------------------------------------------------------
+// ----------------------------------------------------------------------------
 // 客户端从服务端接收数据
-// ----------------------------------------------------------------
-func (c *Client) ReadMsg () {
+// ----------------------------------------------------------------------------
+func (c *Client) ReadMsg() {
 	for {
-		bytes := make([]byte, 4096)
+		bytes := make([]byte, 1024)
 		_, _, err := c.Conn.ReadFrom(bytes)
 		if err != nil {
 			fmt.Println("client read error:", err.Error())
@@ -249,17 +263,22 @@ func (c *Client) ReadMsg () {
 	}
 }
 
-func (c *Client) readMsgFromVCI (msgTypeCode uint8, protoMsg proto.Message) {
+// readMsgFromVCI
+// ----------------------------------------------------------------------------
+// 读取VCI消息
+// ----------------------------------------------------------------------------
+func (c *Client) readMsgFromVCI(msgTypeCode uint8, protoMsg proto.Message) {
 	switch msgTypeCode {
 	case 0x80:
 		//vCILoginAns := protoMsg.(*fsmvci.VCIManagerRegisterReponse)
 		fmt.Printf("this is server return message 0x80 %+v \n", protoMsg)
 		//go c.sendWSChannel(c.WsMessageChan, protoMsg)
 		c.CheckRegisterMessageRam(0x00, protoMsg)
+
 	case 0x82:
 
 		vCIHeartAns := protoMsg.(*fsmvci.VCIManagerHeartBeatReponse)
-		if c.HeartbeatCtr + 3  < int64(vCIHeartAns.ReHeartbeatCnt)  || c.HeartbeatCtr -3 > int64(vCIHeartAns.ReHeartbeatCnt) {
+		if c.HeartbeatCtr+3 < int64(vCIHeartAns.ReHeartbeatCnt) || c.HeartbeatCtr-3 > int64(vCIHeartAns.ReHeartbeatCnt) {
 			fmt.Printf("HeartbeatCtr error :client heartbeat less server heartbeat")
 			return
 		}
@@ -269,17 +288,9 @@ func (c *Client) readMsgFromVCI (msgTypeCode uint8, protoMsg proto.Message) {
 		//go c.sendWSChannel(c.WsMessageChan, protoMsg)
 		c.CheckHeartMessageRam(0x02, protoMsg)
 
-	//case 0x84:
-	//	pluggedHeartbeatAns := protoMsg.(*fsmvci.VCIPluggedHeartbeatAns)
-	//	if c.HeartbeatCtr + 3  < int64(pluggedHeartbeatAns.HeartbeatCtr.Value)  || c.HeartbeatCtr -3 > int64(pluggedHeartbeatAns.HeartbeatCtr.Value) {
-	//		fmt.Printf("HeartbeatCtr error :client heartbeat less server heartbeat")
-	//		return
-	//	}
-	//	c.HeartbeatCtr = int64(pluggedHeartbeatAns.HeartbeatCtr.GetValue())
-	//	c.Interval = pluggedHeartbeatAns.Interval.GetValue()
-	//	fmt.Printf("this is server return message 0x84 %v \n", pluggedHeartbeatAns)
-	//	go c.sendWSChannel(c.WsMessageChan, protoMsg)
-	//	c.CheckHeartMessageRam(0x04, protoMsg)
+	case 0x81:
+		fmt.Printf("this is server return message 0x81 %+v \n", protoMsg)
+		c.CheckRegisterMessageRam(0x01, protoMsg)
 
 	case 0x86:
 		vCIChargingHeartbeatAns := protoMsg.(*fsmvci.VCIChargerHeartBeatResponse)
@@ -296,7 +307,11 @@ func (c *Client) readMsgFromVCI (msgTypeCode uint8, protoMsg proto.Message) {
 	}
 }
 
-func (c *Client) readMsgFromPMM (msgTypeCode uint8, protoMsg proto.Message) {
+// readMsgFromPMM
+// ----------------------------------------------------------------------------
+// 读取PMM消息
+// ----------------------------------------------------------------------------
+func (c *Client) readMsgFromPMM(msgTypeCode uint8, protoMsg proto.Message) {
 	switch msgTypeCode {
 
 	case 0x80:
@@ -306,20 +321,14 @@ func (c *Client) readMsgFromPMM (msgTypeCode uint8, protoMsg proto.Message) {
 		c.CheckRegisterMessageRam(0x00, protoMsg)
 	case 0x82:
 		adModuleLoginAns := protoMsg.(*fsmpmm.ADModuleLoginAns)
-		//if c.HeartbeatCtr + 3  < int64(vCIHeartAns.HeartbeatCtr.Value)  || c.HeartbeatCtr -3 > int64(vCIHeartAns.HeartbeatCtr.Value) {
-		//	fmt.Printf("HeartbeatCtr error :client heartbeat less server heartbeat")
-		//	return
-		//}
+
 		fmt.Printf("this is server return message 0x82 %v \n", adModuleLoginAns)
 		go c.sendWSChannel(c.WsMessageChan, protoMsg)
 		c.CheckRegisterMessageRam(0x02, protoMsg)
 	case 0x84:
 		pmmHeartbeatAns := protoMsg.(*fsmpmm.PMMHeartbeatAns)
 		c.HeartbeatCtr = int64(pmmHeartbeatAns.HeartbeatCtr)
-		//if c.HeartbeatCtr + 3  < int64(pluggedHeartbeatAns.HeartbeatCtr.Value)  || c.HeartbeatCtr -3 > int64(pluggedHeartbeatAns.HeartbeatCtr.Value) {
-		//	fmt.Printf("HeartbeatCtr error :client heartbeat less server heartbeat")
-		//	return
-		//}
+
 		c.Interval = pmmHeartbeatAns.Interval
 		fmt.Printf("this is server return message 0x84 %v \n", protoMsg)
 		go c.sendWSChannel(c.WsMessageChan, protoMsg)
@@ -343,7 +352,11 @@ func (c *Client) readMsgFromPMM (msgTypeCode uint8, protoMsg proto.Message) {
 	}
 }
 
-func (c *Client) readMsgFromOHP (msgTypeCode uint8, protoMsg proto.Message) {
+// readMsgFromOHP
+// ----------------------------------------------------------------------------
+// 读取OHP消息
+// ----------------------------------------------------------------------------
+func (c *Client) readMsgFromOHP(msgTypeCode uint8, protoMsg proto.Message) {
 	switch msgTypeCode {
 	case 0x80:
 		//vCILoginAns := protoMsg.(*fsmohp.OrderPipelineLoginAns)
@@ -352,7 +365,7 @@ func (c *Client) readMsgFromOHP (msgTypeCode uint8, protoMsg proto.Message) {
 		c.CheckRegisterMessageRam(0x00, protoMsg)
 	case 0x82:
 		orderHeart := protoMsg.(*fsmohp.OrderPipelineHeartbeatAns)
-		if c.HeartbeatCtr + 3  < int64(orderHeart.HeartbeatCtr)  || c.HeartbeatCtr -3 > int64(orderHeart.HeartbeatCtr) {
+		if c.HeartbeatCtr+3 < int64(orderHeart.HeartbeatCtr) || c.HeartbeatCtr-3 > int64(orderHeart.HeartbeatCtr) {
 			fmt.Printf("HeartbeatCtr error :client heartbeat less server heartbeat")
 			return
 		}
@@ -363,7 +376,7 @@ func (c *Client) readMsgFromOHP (msgTypeCode uint8, protoMsg proto.Message) {
 		c.CheckHeartMessageRam(0x02, protoMsg)
 	case 0x84:
 		pluggedHeartbeatAns := protoMsg.(*fsmohp.OrderPipelineRTpull)
-		if c.HeartbeatCtr + 3  < int64(pluggedHeartbeatAns.RTpullCtr)  || c.HeartbeatCtr -3 > int64(pluggedHeartbeatAns.RTpullCtr) {
+		if c.HeartbeatCtr+3 < int64(pluggedHeartbeatAns.RTpullCtr) || c.HeartbeatCtr-3 > int64(pluggedHeartbeatAns.RTpullCtr) {
 			fmt.Printf("HeartbeatCtr error :client heartbeat less server heartbeat")
 			return
 		}
@@ -376,8 +389,10 @@ func (c *Client) readMsgFromOHP (msgTypeCode uint8, protoMsg proto.Message) {
 }
 
 // WriteMsg
+// ----------------------------------------------------------------------------
 // 客户端向服务端发送数据
-func (c *Client) WriteMsg (msgType uint, protoMsg proto.Message) {
+// ----------------------------------------------------------------------------
+func (c *Client) WriteMsg(msgType uint, protoMsg proto.Message) {
 	bytes, err := Utils.EnCodeByProto(msgType, protoMsg)
 	if err != nil {
 		fmt.Printf("client write data error: %s", err.Error())
@@ -392,10 +407,12 @@ func (c *Client) WriteMsg (msgType uint, protoMsg proto.Message) {
 }
 
 // CheckWSMessage
+// ----------------------------------------------------------------------------
 // 检测消息管道内的数据，取出后
 // Web Sockert 管道内的数据，并发送到前端
-func (c *Client) CheckWSMessage (roomId int) {
-	for{
+// ----------------------------------------------------------------------------
+func (c *Client) CheckWSMessage(roomId int) {
+	for {
 		select {
 		case dataByte := <-c.WsMessageChan:
 			c.WSocket.Wsmu.Lock()
@@ -415,36 +432,42 @@ func (c *Client) CheckWSMessage (roomId int) {
 	}
 }
 
+// sendWSChannel
+// ----------------------------------------------------------------------------
 // 返回的数据发送给WS管道，返回给前端
-func (c *Client) sendWSChannel (channel chan []byte, msg proto.Message) {
+// ----------------------------------------------------------------------------
+func (c *Client) sendWSChannel(channel chan []byte, msg proto.Message) {
 	messageChan, _ := json.Marshal(msg)
-	channel<-messageChan
+	channel <- messageChan
 }
 
+// writeToMySQL
+// ----------------------------------------------------------------------------
 // msgType 消息体Command
 // protocMsgOld 消息体发送的信息
 // protocMsgNew 消息体接收的信息
 // costTime 收发过程消耗的时间
 // isPass 测试用例是否通过 (PS: 心跳信息只保存未通过用例)
-func (c *Client) writeToMySQL (msgType uint, protocMsgOld, protocMsgNew proto.Message, costTime int64, isPass int, noPassReason string) error {
+// ----------------------------------------------------------------------------
+func (c *Client) writeToMySQL(msgType uint, protocMsgOld, protocMsgNew proto.Message, costTime int64, isPass int, noPassReason string) error {
 	testCollection := database.TestCollection{}
 	switch c.ConnType {
 	case "VCI":
 		testCollection.ProjectId = 1
 		if msgType == 0x00 {
 			testCollection.MessageType = 1
-		}else if msgType == 0x08 {
+		} else if msgType == 0x08 {
 			testCollection.MessageType = 3
-		}else{
+		} else {
 			testCollection.MessageType = 2
 		}
 	case "PMM":
 		testCollection.ProjectId = 2
 		if msgType == 0x00 || msgType == 0x02 {
 			testCollection.MessageType = 1
-		}else if msgType == 0x08 {
+		} else if msgType == 0x08 {
 			testCollection.MessageType = 3
-		}else{
+		} else {
 			testCollection.MessageType = 2
 		}
 	case "OHP":
@@ -467,17 +490,19 @@ func (c *Client) writeToMySQL (msgType uint, protocMsgOld, protocMsgNew proto.Me
 	}
 	testCollection.InputMessage = protocStrOld
 	testCollection.OutputMessage = protocStrNew
-	_, err  = database.MySQL.Table("test_collection").Insert(&testCollection)
-	if err != nil{
-		fmt.Println(err)
+	_, err = database.MySQL.Table("test_collection").Insert(&testCollection)
+	if err != nil {
+		fmt.Printf("%s\n", err)
 		return err
 	}
 	return nil
 }
 
 // sendDataRam
+// ----------------------------------------------------------------------------
 // 数据添加到内存
-func (c *Client) sendDataRam (msgType uint, protocMsg proto.Message) {
+// ----------------------------------------------------------------------------
+func (c *Client) sendDataRam(msgType uint, protocMsg proto.Message) {
 	c.Mu.Lock()
 	defer c.Mu.Unlock()
 	if c.ConnType == "VCI" {
@@ -516,13 +541,15 @@ func (c *Client) sendDataRam (msgType uint, protocMsg proto.Message) {
 }
 
 // CheckRegisterMessageRam
+// ----------------------------------------------------------------------------
 // 监测注册消息管道数据存入数据库
-func (c *Client) CheckRegisterMessageRam (msgType uint,  protocMsg proto.Message) {
+// ----------------------------------------------------------------------------
+func (c *Client) CheckRegisterMessageRam(msgType uint, protocMsg proto.Message) {
 	c.Mu.Lock()
 	heartMsgOld := c.RegisterMessageChan[msgType].SendRegisterChan
 	oldTime := c.RegisterMessageChan[msgType].SendRegisterTime
 	c.Mu.Unlock()
-	differenceTime := time.Now().UnixMilli() -  oldTime
+	differenceTime := time.Now().UnixMilli() - oldTime
 	err := c.writeToMySQL(msgType, heartMsgOld, protocMsg, differenceTime, 1, "")
 	if err != nil {
 		fmt.Printf("Mysql error : %s", err.Error())
@@ -530,9 +557,11 @@ func (c *Client) CheckRegisterMessageRam (msgType uint,  protocMsg proto.Message
 }
 
 // CheckHeartMessageRam
+// ----------------------------------------------------------------------------
 // 监测心跳消息管道是否合法数据
 // 不合法存入数据库
-func (c *Client) CheckHeartMessageRam (msgType uint,  protocMsg proto.Message) {
+// ----------------------------------------------------------------------------
+func (c *Client) CheckHeartMessageRam(msgType uint, protocMsg proto.Message) {
 	c.Mu.Lock()
 	heartMsg := c.HeartBeatMessageChan[msgType].SendHeartBeatChan
 	c.Mu.Unlock()
@@ -545,42 +574,32 @@ func (c *Client) CheckHeartMessageRam (msgType uint,  protocMsg proto.Message) {
 			costTime = heartMsgNew.ReTimeNow - heartMsgOld.TimeNow
 
 			heartCnt := heartMsgNew.ReHeartbeatCnt + 3
-			heartCntReverse := heartMsgOld.HeartBeatCnt  + 3
+			heartCntReverse := heartMsgOld.HeartBeatCnt + 3
 			if (heartMsgOld.HeartBeatCnt > heartCnt || heartMsgNew.ReHeartbeatCnt > heartCntReverse) ||
 				costTime > uint64(heartMsgOld.HeartBeatPeriod) {
 				noPassReason = "心跳计数错误或者超时"
 				c.writeToMySQL(msgType, heartMsgOld, heartMsgNew, int64(costTime), isPass, noPassReason)
-			}else{
+			} else {
 				isPass = 1
 				c.writeToMySQL(msgType, heartMsgOld, heartMsgNew, int64(costTime), isPass, noPassReason)
 			}
-		}else{
+		} else {
 			heartMsgOld := heartMsg.(*fsmvci.VCIChargerHeartBeatInfo)
 			heartMsgNew := protocMsg.(*fsmvci.VCIChargerHeartBeatResponse)
 			costTime = heartMsgNew.ReTimeNow - heartMsgOld.TimeNow
 
 			heartCnt := heartMsgNew.ReHeartBeatCnt + 3
-			heartCntReverse := heartMsgOld.HeartbeatCnt  + 3
+			heartCntReverse := heartMsgOld.HeartbeatCnt + 3
 			if (heartMsgOld.HeartbeatCnt > heartCnt || heartMsgNew.ReHeartBeatCnt > heartCntReverse) ||
 				costTime > uint64(heartMsgOld.HeartBeatPeriod) {
 				noPassReason = "心跳计数错误或者超时"
 				c.writeToMySQL(msgType, heartMsgOld, heartMsgNew, int64(costTime), isPass, noPassReason)
-			}else{
+			} else {
 				isPass = 1
 				c.writeToMySQL(msgType, heartMsgOld, heartMsgNew, int64(costTime), isPass, noPassReason)
 			}
 
 		}
-		//else if msgType == 0x04 {
-		//	heartMsgOld := heartMsg.(*fsmvci.VCIPluggedHeartbeatReq)
-		//	heartMsgNew := protocMsg.(*fsmvci.VCIPluggedHeartbeatAns)
-		//	if heartMsgOld.HeartbeatCtr.GetValue() + 3 < heartMsgNew.HeartbeatCtr.GetValue() || heartMsgOld.HeartbeatCtr.GetValue() - 3 > heartMsgNew.HeartbeatCtr.GetValue() ||
-		//		heartMsgOld.CurrentTime.Time + uint64(heartMsgOld.Interval.GetValue()) < heartMsgNew.CurrentTime.Time {
-		//		costTime := heartMsgNew.CurrentTime.Time - heartMsgOld.CurrentTime.Time
-		//		// TODO 存入数据库
-		//		c.writeToMySQL(msgType, heartMsgOld, heartMsgNew, int64(costTime), 0)
-		//	}
-		//}
 	}
 	if c.ConnType == "PMM" {
 		if msgType == 0x04 {
@@ -589,29 +608,29 @@ func (c *Client) CheckHeartMessageRam (msgType uint,  protocMsg proto.Message) {
 			costTime := heartMsgNew.CurrentTime - heartMsgOld.CurrentTime
 
 			heartCnt := heartMsgNew.HeartbeatCtr + 3
-			heartCntReverse := heartMsgOld.HeartbeatCtr  + 3
+			heartCntReverse := heartMsgOld.HeartbeatCtr + 3
 			if (heartMsgOld.HeartbeatCtr > heartCnt || heartMsgNew.HeartbeatCtr > heartCntReverse) ||
 				costTime > uint64(heartMsgOld.Interval) {
 				noPassReason = "心跳计数错误或者超时"
 				// TODO 存入数据库
 				c.writeToMySQL(msgType, heartMsgOld, heartMsgNew, int64(costTime), isPass, noPassReason)
-			}else{
+			} else {
 				isPass = 1
 				c.writeToMySQL(msgType, heartMsgOld, heartMsgNew, int64(costTime), isPass, noPassReason)
 			}
-		}else{
+		} else {
 			heartMsgOld := heartMsg.(*fsmpmm.MainContactorHeartbeatReq)
 			heartMsgNew := protocMsg.(*fsmpmm.MainContactorHeartbeatAns)
 			costTime := heartMsgNew.CurrentTime - heartMsgOld.CurrentTime
 
 			heartCnt := heartMsgNew.HeartbeatCtr + 3
-			heartCntReverse := heartMsgOld.HeartbeatCtr  + 3
+			heartCntReverse := heartMsgOld.HeartbeatCtr + 3
 			if (heartMsgOld.HeartbeatCtr < heartCnt || heartMsgNew.HeartbeatCtr < heartCntReverse) ||
 				costTime > uint64(heartMsgOld.Interval) {
 				noPassReason = "心跳计数错误或者超时"
 				// TODO 存入数据库
 				c.writeToMySQL(msgType, heartMsgOld, heartMsgNew, int64(costTime), isPass, noPassReason)
-			}else{
+			} else {
 				isPass = 1
 				c.writeToMySQL(msgType, heartMsgOld, heartMsgNew, int64(costTime), isPass, noPassReason)
 			}
@@ -623,13 +642,13 @@ func (c *Client) CheckHeartMessageRam (msgType uint,  protocMsg proto.Message) {
 			costTime := heartMsgNew.CurrentTime - heartMsgOld.CurrentTime
 
 			heartCnt := heartMsgNew.HeartbeatCtr + 3
-			heartCntReverse := heartMsgOld.HeartbeatCtr  + 3
+			heartCntReverse := heartMsgOld.HeartbeatCtr + 3
 			if (heartMsgOld.HeartbeatCtr > heartCnt || heartMsgNew.HeartbeatCtr > heartCntReverse) ||
 				costTime > uint64(heartMsgOld.Interval) {
 				noPassReason = "心跳计数错误或者超时"
 				// TODO 存入数据库
 				c.writeToMySQL(msgType, heartMsgOld, heartMsgNew, int64(costTime), isPass, noPassReason)
-			}else{
+			} else {
 				isPass = 1
 				c.writeToMySQL(msgType, heartMsgOld, heartMsgNew, int64(costTime), isPass, noPassReason)
 			}
@@ -638,8 +657,10 @@ func (c *Client) CheckHeartMessageRam (msgType uint,  protocMsg proto.Message) {
 }
 
 // CheckRealTimeMessageRam
+// ----------------------------------------------------------------------------
 // 监测realtime消息管道数据存入数据库
-func (c *Client) CheckRealTimeMessageRam (msgType uint, protocMsg proto.Message) {
+// ----------------------------------------------------------------------------
+func (c *Client) CheckRealTimeMessageRam(msgType uint, protocMsg proto.Message) {
 	isPass := 1
 	noPassReason := ""
 	c.Mu.Lock()
@@ -647,7 +668,7 @@ func (c *Client) CheckRealTimeMessageRam (msgType uint, protocMsg proto.Message)
 	oldTime := c.RealTimeMessageChan[msgType].SendRealTimeTime
 	c.Mu.Unlock()
 	// differenceTime 两帧实时消息的时间差
-	differenceTime := time.Now().UnixMilli() -  oldTime
+	differenceTime := time.Now().UnixMilli() - oldTime
 
 	if c.ConnType == "VCI" {
 		vciRTpush, ok := heartMsgOld.(*fsmvci.VCIChargerRTRsponse)
@@ -687,6 +708,9 @@ func (c *Client) CheckRealTimeMessageRam (msgType uint, protocMsg proto.Message)
 				noPassReason = "超时"
 			}
 		}
+
+	}
+	if c.ConnType == "OHP" {
 		ohpRTpush, ok := heartMsgOld.(*fsmohp.OrderPipelineRTpush)
 		if ok {
 			if differenceTime > int64(ohpRTpush.Interval) {
@@ -695,12 +719,14 @@ func (c *Client) CheckRealTimeMessageRam (msgType uint, protocMsg proto.Message)
 			}
 		}
 	}
-
 	c.writeToMySQL(msgType, heartMsgOld, protocMsg, differenceTime, isPass, noPassReason)
 }
 
+// portFromJson
+// ----------------------------------------------------------------------------
 // 从json文件中获取port
-func portFromJson (protocMap map[string]interface{}, moduleName string) map[int]int {
+// ----------------------------------------------------------------------------
+func portFromJson(protocMap map[string]interface{}, moduleName string) map[int]int {
 	port := make(map[int]int)
 	portList := protocMap[moduleName].([]interface{})
 	for _, v := range portList {
@@ -708,8 +734,4 @@ func portFromJson (protocMap map[string]interface{}, moduleName string) map[int]
 		port[val] = val
 	}
 	return port
-}
-
-func testclient () {
-
 }

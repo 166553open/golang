@@ -1,9 +1,9 @@
 package database
 
 type SqlMessage struct {
-	MessageCode string	`json:"message_code"`
-	MessageName string	`json:"message_name"`
-	MessageType int		`json:"message_type"`
+	MessageCode string `json:"message_code"`
+	MessageName string `json:"message_name"`
+	MessageType int    `json:"message_type"`
 }
 
 type TestCollection struct {
@@ -15,13 +15,14 @@ type TestCollection struct {
 	ExpectedMessage string `json:"expected_message" xorm:"text comment('预期输出消息体')"`
 	TimeCost        int64  `json:"time_cost" xorm:"comment('测试用例耗时，单位（ms）')"`
 	IsPass          int    `json:"is_pass" xorm:"comment('测试用例是否通过')"`
-	NoPassReason	string `json:"no_pass_reason" xorm:"comment('未通过原因')"`
+	NoPassReason    string `json:"no_pass_reason" xorm:"comment('未通过原因')"`
 	IsDelete        int    `json:"is_delete" xorm:"comment('是否删除')"`
 	TestDate        string `json:"test_date" xorm:"comment('测试日期')"`
 	CurrentTime     int64  `json:"current_time"`
 	CreatedAt       string `json:"created_at" xorm:"<-"`
 	UpdatedAt       string `json:"updated_at" xorm:"<-"`
 }
+
 /*
 CREATE TABLE IF NOT EXISTS test_collection(
 	`id` int(11) not null auto_increment primary key,
@@ -42,13 +43,14 @@ CREATE TABLE IF NOT EXISTS test_collection(
 */
 
 type TestMessage struct {
-	ID 			int `json:"id" xorm:"pk autoincr"`
-	ProjectId 	int `json:"project_id" xorm:"comment('项目id')"`
+	ID          int    `json:"id" xorm:"pk autoincr"`
+	ProjectId   int    `json:"project_id" xorm:"comment('项目id')"`
 	ProjectName string `json:"project_name" xorm:"comment('项目名称')"`
 	MessageName string `json:"message_name" xorm:"comment('消息体名称')"`
-	MessageCode int `json:"message_code" xorm:"comment('消息体code')"`
+	MessageCode int    `json:"message_code" xorm:"comment('消息体code')"`
 	MessageBody string `json:"message_body" xorm:"comment('消息体内容')"`
 }
+
 /*
 CREATE TABLE IF NOT EXISTS test_message(
 	`id` int(11) not null auto_increment primary key,
@@ -63,9 +65,10 @@ CREATE TABLE IF NOT EXISTS test_message(
 */
 
 type TestProjects struct {
-	ID 			int `json:"id" xorm:"pk autoincr"`
+	ID          int    `json:"id" xorm:"pk autoincr"`
 	ProjectName string `json:"project_name"`
 }
+
 /*
 CREATE TABLE IF NOT EXISTS test_projects(
 	`id` int(11) not null auto_increment primary key,

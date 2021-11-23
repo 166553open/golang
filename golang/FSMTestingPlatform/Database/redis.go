@@ -5,21 +5,21 @@ import (
 )
 
 // redisConnect
+// ----------------------------------------------------------------------------
 // 链接到redis库
+// ----------------------------------------------------------------------------
 func redisConnect() *redis.Client {
-	redisConf, err := readFile("./conf/database.json", "redis")
+	redisConfData, err := readFile("./Conf/database.json", "redis")
 	if err != nil {
 		return nil
 	}
-	redisConfData := redisConf.(map[string]interface{})
 	host := redisConfData["host"].(string)
 	port := redisConfData["port"].(string)
 	db := int(redisConfData["db"].(float64))
 	password := redisConfData["password"].(string)
 	return redis.NewClient(&redis.Options{
-		Addr:               host+":"+port,
-		Password:           password,
-		DB:                 db,
+		Addr:     host + ":" + port,
+		Password: password,
+		DB:       db,
 	})
 }
-

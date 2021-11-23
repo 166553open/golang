@@ -1,79 +1,70 @@
 package udp
 
 import (
-	"FSMTestingPlatform/Utils"
-	"FSMTestingPlatform/protoc/fsmohp"
-	"FSMTestingPlatform/protoc/fsmpmm"
-	"FSMTestingPlatform/protoc/fsmvci"
-
 	bytes2 "bytes"
 	"encoding/binary"
 	"fmt"
-	"github.com/golang/protobuf/proto"
 	"net"
 	"sync"
 	"time"
+
+	"FSMTestingPlatform/Protoc/fsmohp"
+	"FSMTestingPlatform/Protoc/fsmpmm"
+	"FSMTestingPlatform/Protoc/fsmvci"
+	"FSMTestingPlatform/Utils"
+
+	"github.com/golang/protobuf/proto"
 )
 
+// Server
+// ----------------------------------------------------------------------------------
+// server结构体
+// ----------------------------------------------------------------------------------
 type Server struct {
-	MaxTime int
-	Ip net.IP
-	Prot int
-	OnlineList map[string]*ConnWithUDP
+	MaxTime      int
+	Ip           net.IP
+	Prot         int
+	OnlineList   map[string]*ConnWithUDP
 	muOnlineList sync.Mutex
 }
 
+// ConnWithUDP
+// ----------------------------------------------------------------------------------
+// ConnWithUDP结构体
+// ----------------------------------------------------------------------------------
 type ConnWithUDP struct {
-	Lived bool
+	Lived      bool
 	TimeOutNum int8
-	LastTime int64
-	Addr string
+	LastTime   int64
+	Addr       string
 }
 
-func NewServer (ip net.IP, port int) *Server {
+// NewServer
+// ----------------------------------------------------------------------------------
+// 构建Server，返回其指针
+// ----------------------------------------------------------------------------------
+func NewServer(ip net.IP, port int) *Server {
 	return &Server{
-		MaxTime:  1000,
-		Ip:       ip,
-		Prot:     port,
+		MaxTime:    1000,
+		Ip:         ip,
+		Prot:       port,
 		OnlineList: make(map[string]*ConnWithUDP),
 	}
 }
 
-func (s *Server) ConnectConn (addr string) {
-	s.muOnlineList.Lock()
-	s.OnlineList[addr] = &ConnWithUDP{
-		Lived:      true,
-		TimeOutNum: 0,
-		LastTime:   time.Now().UnixMilli(),
-		Addr:       addr,
-	}
-	s.muOnlineList.Unlock()
+// Online
+// ----------------------------------------------------------------------------------
+// 调用connectConn函数
+// ----------------------------------------------------------------------------------
+func (s *Server) Online(addr string) {
+	s.connectConn(addr)
 }
 
-func (s *Server) Online (addr string) {
-	s.ConnectConn(addr)
-}
-
-func (s *Server) HeartBeat (addr string) {
-	if addr == "" {
-		return
-	}
-	s.muOnlineList.Lock()
-	conn, ok:= s.OnlineList[addr]
-	if ok {
-		conn.LastTime = time.Now().UnixMilli()
-		conn.TimeOutNum = 0
-	}
-	s.muOnlineList.Unlock()
-}
-
-func (s *Server) unConnectConn(addr string) {
-	s.muOnlineList.Lock()
-	delete(s.OnlineList, addr)
-	s.muOnlineList.Unlock()
-}
-
-func (s *Server) ReadMsg (conn *net.UDPConn) {
+// ReadMsg
+// ----------------------------------------------------------------------------------
+// Server读取数据
+// ----------------------------------------------------------------------------------
+func (s *Server) ReadMsg(conn *net.UDPConn) {
 	for {
 		bytes := make([]byte, 4096)
 		n, addr, err := conn.ReadFrom(bytes)
@@ -98,10 +89,54 @@ func (s *Server) ReadMsg (conn *net.UDPConn) {
 	}
 }
 
+// isHeartBeat
+// ----------------------------------------------------------------------------------
+// 建立心跳，初始化超时次数和当前时间
+// ----------------------------------------------------------------------------------
+func (s *Server) isHeartBeat(addr string) {
+	if addr == "" {
+		return
+	}
+	s.muOnlineList.Lock()
+	conn, ok := s.OnlineList[addr]
+	if ok {
+		conn.LastTime = time.Now().UnixMilli()
+		conn.TimeOutNum = 0
+	}
+	s.muOnlineList.Unlock()
+}
+
+// connectConn
+// ----------------------------------------------------------------------------------
+// 客户端链接成功后存入Server.OnlineList
+// ----------------------------------------------------------------------------------
+func (s *Server) connectConn(addr string) {
+	s.muOnlineList.Lock()
+	s.OnlineList[addr] = &ConnWithUDP{
+		Lived:      true,
+		TimeOutNum: 0,
+		LastTime:   time.Now().UnixMilli(),
+		Addr:       addr,
+	}
+	s.muOnlineList.Unlock()
+}
+
+// unConnectConn
+// ----------------------------------------------------------------------------------
+// 客户端链接信息从Server.OnlineList删除
+// ----------------------------------------------------------------------------------
+func (s *Server) unConnectConn(addr string) {
+	s.muOnlineList.Lock()
+	delete(s.OnlineList, addr)
+	s.muOnlineList.Unlock()
+}
+
 // messageTypeAssertion
+// ----------------------------------------------------------------------------------
 // 消息类型断言
 // 不同Server消息体的Command 都是80、82、84、86、88
-func (s *Server) messageTypeAssertion (conn *net.UDPConn, addr net.Addr, msgTypeCode uint8, protoMsg proto.Message) {
+// ----------------------------------------------------------------------------------
+func (s *Server) messageTypeAssertion(conn *net.UDPConn, addr net.Addr, msgTypeCode uint8, protoMsg proto.Message) {
 	if s.Prot == 9000 || s.Prot == 9010 || s.Prot == 9020 {
 		s.vciMessage(conn, addr, msgTypeCode, protoMsg)
 	}
@@ -113,16 +148,19 @@ func (s *Server) messageTypeAssertion (conn *net.UDPConn, addr net.Addr, msgType
 	}
 }
 
-// VCI Server
 // vciMessage
-func (s *Server) vciMessage (conn *net.UDPConn, addr net.Addr, msgTypeCode uint8, protoMsg proto.Message) {
+// ----------------------------------------------------------------------------------
+// 判断VCI消息类型，返回相应的初始化数据
+// ----------------------------------------------------------------------------------
+func (s *Server) vciMessage(conn *net.UDPConn, addr net.Addr, msgTypeCode uint8, protoMsg proto.Message) {
 	switch msgTypeCode {
 	case 0x00:
 		s.WriteVehicleChargingInterfaceLoginAns(conn, addr, protoMsg.(*fsmvci.VCIManagerRegisterInfo))
 	case 0x02:
 		s.WriteVCImainHeartbeatAns(conn, addr, protoMsg.(*fsmvci.VCIManagerHeartBeatInfo))
-	//case 0x04:
-	//	s.WriteVCIPluggedHeartbeatAns(conn, addr, protoMsg.(*fsmvci.VCIPluggedHeartbeatReq))
+	case 0x01:
+		s.WriteVCIChargingRegisterRep(conn, addr, protoMsg.(*fsmvci.VCIChargerRegisterInfo))
+
 	case 0x06:
 		s.WriteVCIChargingHeartbeatAns(conn, addr, protoMsg.(*fsmvci.VCIChargerHeartBeatInfo))
 	case 0x08:
@@ -130,9 +168,11 @@ func (s *Server) vciMessage (conn *net.UDPConn, addr net.Addr, msgTypeCode uint8
 	}
 }
 
-// PMM Server
 // pmmMessage
-func (s *Server) pmmMessage (conn *net.UDPConn, addr net.Addr, msgTypeCode uint8, protoMsg proto.Message) {
+// ----------------------------------------------------------------------------------
+// 判断PMM消息类型，返回相应的初始化数据
+// ----------------------------------------------------------------------------------
+func (s *Server) pmmMessage(conn *net.UDPConn, addr net.Addr, msgTypeCode uint8, protoMsg proto.Message) {
 	switch msgTypeCode {
 	case 0x00:
 		s.PowerMatrixLoginAns(conn, addr, protoMsg.(*fsmpmm.PowerMatrixLogin))
@@ -147,10 +187,11 @@ func (s *Server) pmmMessage (conn *net.UDPConn, addr net.Addr, msgTypeCode uint8
 	}
 }
 
-
-// OHP Server
 // ohpMessage
-func (s *Server) ohpMessage (conn *net.UDPConn, addr net.Addr, msgTypeCode uint8, protoMsg proto.Message) {
+// ----------------------------------------------------------------------------------
+// 判断OHP消息类型，返回相应的初始化数据
+// ----------------------------------------------------------------------------------
+func (s *Server) ohpMessage(conn *net.UDPConn, addr net.Addr, msgTypeCode uint8, protoMsg proto.Message) {
 	switch msgTypeCode {
 	case 0x00:
 		s.OrderPipelineLoginAns(conn, addr, protoMsg.(*fsmohp.OrderPipelineLogin))
@@ -161,14 +202,11 @@ func (s *Server) ohpMessage (conn *net.UDPConn, addr net.Addr, msgTypeCode uint8
 	}
 }
 
-//Handle connect
-//func (s *Server) WriteConnect (conn *net.UDPConn, msg string, addr net.Addr) {
-//	s.ConnectConn(addr.String())
-//	fmt.Printf("%s is connect \n", addr.String())
-//}
-
-// WriteVehicleChargingInterfaceLoginAns 0x80
-func (s *Server) WriteVehicleChargingInterfaceLoginAns (conn *net.UDPConn, addr net.Addr, register *fsmvci.VCIManagerRegisterInfo) {
+// WriteVehicleChargingInterfaceLoginAns
+// ----------------------------------------------------------------------------------
+// VCI 0x80
+// ----------------------------------------------------------------------------------
+func (s *Server) WriteVehicleChargingInterfaceLoginAns(conn *net.UDPConn, addr net.Addr, register *fsmvci.VCIManagerRegisterInfo) {
 	vCIGunPrametersList := make([]*fsmvci.VCIGunPrameters, 0)
 	vCISysParametersList := make([]*fsmvci.VCISysParameters, 0)
 	chargerReviveList := make([]*fsmvci.ChargerRevive, 0)
@@ -189,31 +227,32 @@ func (s *Server) WriteVehicleChargingInterfaceLoginAns (conn *net.UDPConn, addr 
 		ReVCISysParameterListLong: 4,
 		ReChargerReviveListLong:   4,
 		ReSelfCheckResult:         1,
-		ReEnableServer:            &fsmvci.EnableServer{
+		ReEnableServer: &fsmvci.EnableServer{
 			VCIServer: 1,
 			PMMServer: 1,
 			DMCServer: 0,
 			OHPServer: 1,
 			LCRServer: 0,
 		},
-		ReVCIGunPrametersList:     vCIGunPrametersList,
-		ReVCISysParameterList:     vCISysParametersList,
-		ReChargerReviveList:       chargerReviveList,
+		ReVCIGunPrametersList: vCIGunPrametersList,
+		ReVCISysParameterList: vCISysParametersList,
+		ReChargerReviveList:   chargerReviveList,
 	}
 
 	s.WriteMsg(conn, 0x80, vCIManagerRegisterReponse, addr)
 }
 
-// WriteVCImainHeartbeatAns 0x82
-func (s *Server) WriteVCImainHeartbeatAns (conn *net.UDPConn, addr net.Addr, managerHeart *fsmvci.VCIManagerHeartBeatInfo) {
+// WriteVCImainHeartbeatAns
+// ----------------------------------------------------------------------------------
+// VCI 0x82
+// ----------------------------------------------------------------------------------
+func (s *Server) WriteVCImainHeartbeatAns(conn *net.UDPConn, addr net.Addr, managerHeart *fsmvci.VCIManagerHeartBeatInfo) {
 	heartbeatCtr := managerHeart.HeartBeatCnt
 	heartbeatCtr++
 
 	vCIGunPrametersList := make([]*fsmvci.VCIGunPrameters, 0)
 	vCISysParametersList := make([]*fsmvci.VCISysParameters, 0)
 	sysCtrlConnectStageList := make([]*fsmvci.SysCtrlConnectStage, 0)
-
-
 
 	vCIPram := Utils.VCIPramInit(1, 1, 1, 0)
 	vCIGunPrametersList = append(vCIGunPrametersList, vCIPram)
@@ -238,29 +277,22 @@ func (s *Server) WriteVCImainHeartbeatAns (conn *net.UDPConn, addr net.Addr, man
 	s.WriteMsg(conn, 0x82, vCImainHeartbeatAns, addr)
 }
 
-/*
-// WriteVCIPluggedHeartbeatAns 0x84
-func (s *Server) WriteVCIPluggedHeartbeatAns (conn *net.UDPConn, addr net.Addr, vCImainHeartbeatReq *fsmvci.VCIPluggedHeartbeatReq)  {
-	heartbeatCtr := vCImainHeartbeatReq.HeartbeatCtr.GetValue()
-	heartbeatCtr++
-	vCIPluggedHeartbeatAns := &fsmvci.VCIPluggedHeartbeatAns{
-		ID:           vCImainHeartbeatReq.ID,
-		HeartbeatCtr: &fsmvci.Uint32Value{Value: heartbeatCtr},
-		VCIPramList:  nil,
-		SysCtrl:      &fsmvci.SysCtrlPluggedStage{
-			ElockCmd:  &fsmvci.BoolEnum{Value: true},
-			StartCmd:  &fsmvci.BoolEnum{Value: false},
-			StartType: &fsmvci.BoolEnum{Value: false},
-		},
-		CurrentTime:  &fsmvci.DateTimeLong{Time: uint64(time.Now().UnixMilli())},
-		Interval:     &fsmvci.Uint32Value{Value: 2000},
-	}
-	s.WriteMsg(conn,0x84, vCIPluggedHeartbeatAns, addr)
-}
-*/
+// WriteVCIChargingRegisterRep
+// ----------------------------------------------------------------------------------
+// VCI 0x81
+// ----------------------------------------------------------------------------------
+func (s *Server) WriteVCIChargingRegisterRep(conn *net.UDPConn, addr net.Addr, info *fsmvci.VCIChargerRegisterInfo) {
+	info.Register++
+	vciChargerRegister := Utils.VCIChargerRegisterResponse(info.Register, uint32(s.Prot))
 
-// WriteVCIChargingHeartbeatAns 0x86
-func (s *Server) WriteVCIChargingHeartbeatAns (conn *net.UDPConn, addr net.Addr, vCIChargingHeartBeatInfo *fsmvci.VCIChargerHeartBeatInfo)  {
+	s.WriteMsg(conn, 0x81, vciChargerRegister, addr)
+}
+
+// WriteVCIChargingHeartbeatAns
+// ----------------------------------------------------------------------------------
+// VCI 0x86
+// ----------------------------------------------------------------------------------
+func (s *Server) WriteVCIChargingHeartbeatAns(conn *net.UDPConn, addr net.Addr, vCIChargingHeartBeatInfo *fsmvci.VCIChargerHeartBeatInfo) {
 	heartbeatCtr := vCIChargingHeartBeatInfo.HeartbeatCnt
 	heartbeatCtr++
 
@@ -269,7 +301,7 @@ func (s *Server) WriteVCIChargingHeartbeatAns (conn *net.UDPConn, addr net.Addr,
 		ReHeartBeatCnt:    heartbeatCtr,
 		ReTimeNow:         uint64(time.Now().UnixMilli()),
 		ReHeartBeatPeriod: vCIChargingHeartBeatInfo.HeartBeatPeriod,
-		ReGunCaredMsg:     &fsmvci.GunCaredInfo{
+		ReGunCaredMsg: &fsmvci.GunCaredInfo{
 			AllocaOK:       1,
 			OutConnectorFb: 0,
 			MeterVoltage:   150,
@@ -279,11 +311,14 @@ func (s *Server) WriteVCIChargingHeartbeatAns (conn *net.UDPConn, addr net.Addr,
 		},
 	}
 
-	s.WriteMsg(conn,0x86, vCIChargingHeartBeatResponse, addr)
+	s.WriteMsg(conn, 0x86, vCIChargingHeartBeatResponse, addr)
 }
 
-// WriteVCIChargingRTpull 0x88
-func (s *Server) WriteVCIChargingRTpull (conn *net.UDPConn, addr net.Addr, vCImainHeartbeatReq *fsmvci.VCIChargerRTInfo)  {
+// WriteVCIChargingRTpull
+// ----------------------------------------------------------------------------------
+// VCI 0x88
+// ----------------------------------------------------------------------------------
+func (s *Server) WriteVCIChargingRTpull(conn *net.UDPConn, addr net.Addr, vCImainHeartbeatReq *fsmvci.VCIChargerRTInfo) {
 	RTpushCtr := vCImainHeartbeatReq.PushCnt
 	RTpushCtr++
 	vCIChargerRTRsponse := &fsmvci.VCIChargerRTRsponse{
@@ -294,12 +329,14 @@ func (s *Server) WriteVCIChargingRTpull (conn *net.UDPConn, addr net.Addr, vCIma
 		EchoFaultList: nil,
 	}
 
-	s.WriteMsg(conn,0x88, vCIChargerRTRsponse, addr)
+	s.WriteMsg(conn, 0x88, vCIChargerRTRsponse, addr)
 }
 
 // PowerMatrixLoginAns
-// 0x80
-func (s *Server) PowerMatrixLoginAns (conn *net.UDPConn, addr net.Addr, powerMatrixLogin *fsmpmm.PowerMatrixLogin) {
+// ----------------------------------------------------------------------------------
+// PMM 0x80
+// ----------------------------------------------------------------------------------
+func (s *Server) PowerMatrixLoginAns(conn *net.UDPConn, addr net.Addr, powerMatrixLogin *fsmpmm.PowerMatrixLogin) {
 	powerMatrixLoginAns := &fsmpmm.PowerMatrixLoginAns{
 		PowerModuleProtoVersion: powerMatrixLogin.PowerModuleProtoVersion,
 		MainStateMachineVendor:  powerMatrixLogin.PowerModuleVendor,
@@ -312,8 +349,10 @@ func (s *Server) PowerMatrixLoginAns (conn *net.UDPConn, addr net.Addr, powerMat
 }
 
 // ADModuleLoginAns
-// 0x82
-func (s *Server) ADModuleLoginAns (conn *net.UDPConn, addr net.Addr, ADModuleLogin *fsmpmm.ADModuleLogin) {
+// ----------------------------------------------------------------------------------
+// PMM 0x82
+// ----------------------------------------------------------------------------------
+func (s *Server) ADModuleLoginAns(conn *net.UDPConn, addr net.Addr, ADModuleLogin *fsmpmm.ADModuleLogin) {
 	ADModuleLoginAns := &fsmpmm.ADModuleLoginAns{
 		MainContactorAmount:   6,
 		MatrixContactorAmount: 6,
@@ -326,8 +365,10 @@ func (s *Server) ADModuleLoginAns (conn *net.UDPConn, addr net.Addr, ADModuleLog
 }
 
 // PMMHeartbeatReq
-// 0x84
-func (s *Server) PMMHeartbeatReq (conn *net.UDPConn, addr net.Addr, PMMHeartbeatReq *fsmpmm.PMMHeartbeatReq) {
+// ----------------------------------------------------------------------------------
+// PMM 0x84
+// ----------------------------------------------------------------------------------
+func (s *Server) PMMHeartbeatReq(conn *net.UDPConn, addr net.Addr, PMMHeartbeatReq *fsmpmm.PMMHeartbeatReq) {
 	heartbeatCtr := PMMHeartbeatReq.HeartbeatCtr
 	heartbeatCtr++
 	PMMHeartbeatAns := &fsmpmm.PMMHeartbeatAns{
@@ -341,8 +382,10 @@ func (s *Server) PMMHeartbeatReq (conn *net.UDPConn, addr net.Addr, PMMHeartbeat
 }
 
 // MainContactorHeartbeatAns
-// 0x86
-func (s *Server) MainContactorHeartbeatAns (conn *net.UDPConn, addr net.Addr, MainHeartbeatReq *fsmpmm.MainContactorHeartbeatReq) {
+// ----------------------------------------------------------------------------------
+// PMM 0x86
+// ----------------------------------------------------------------------------------
+func (s *Server) MainContactorHeartbeatAns(conn *net.UDPConn, addr net.Addr, MainHeartbeatReq *fsmpmm.MainContactorHeartbeatReq) {
 	heartbeatCtr := MainHeartbeatReq.HeartbeatCtr
 	heartbeatCtr++
 	MainHeartbeatAns := &fsmpmm.MainContactorHeartbeatAns{
@@ -357,8 +400,10 @@ func (s *Server) MainContactorHeartbeatAns (conn *net.UDPConn, addr net.Addr, Ma
 }
 
 // MainContactorRTpull
-// 0x88
-func (s *Server) MainContactorRTpull (conn *net.UDPConn, addr net.Addr, MainContactorRTpush *fsmpmm.MainContactorRTpush) {
+// ----------------------------------------------------------------------------------
+// PMM 0x88
+// ----------------------------------------------------------------------------------
+func (s *Server) MainContactorRTpull(conn *net.UDPConn, addr net.Addr, MainContactorRTpush *fsmpmm.MainContactorRTpush) {
 	heartbeatCtr := MainContactorRTpush.RTpushCtr
 	heartbeatCtr++
 	MainContactorRTpull := &fsmpmm.MainContactorRTpull{
@@ -372,27 +417,31 @@ func (s *Server) MainContactorRTpull (conn *net.UDPConn, addr net.Addr, MainCont
 }
 
 // OrderPipelineLoginAns
-// 0x80
-func (s *Server) OrderPipelineLoginAns (conn *net.UDPConn, addr net.Addr, OrderPipelineLogin *fsmohp.OrderPipelineLogin) {
-	OrderPipelineLoginAns :=  &fsmohp.OrderPipelineLoginAns{
+// ----------------------------------------------------------------------------------
+// OHP 0x80
+// ----------------------------------------------------------------------------------
+func (s *Server) OrderPipelineLoginAns(conn *net.UDPConn, addr net.Addr, OrderPipelineLogin *fsmohp.OrderPipelineLogin) {
+	OrderPipelineLoginAns := &fsmohp.OrderPipelineLoginAns{
 		OrderPipelineProtoVersion: OrderPipelineLogin.OrderPipelineProtoVersion,
 		MainStateMachineVendor:    OrderPipelineLogin.OrderPipelineVendor,
 		SelfCheckRul:              OrderPipelineLogin.SelfCheckRul,
-		EnableServerList:          &fsmohp.EnableServer{
+		EnableServerList: &fsmohp.EnableServer{
 			VCIServer: true,
 			PMMServer: true,
 			DMCServer: true,
 			OHPServer: true,
 			LCRServer: true,
 		},
-		AllowList:                 []fsmohp.SettlementModuleEnum{1, 3, 4, 5},
+		AllowList: []fsmohp.SettlementModuleEnum{1, 3, 4, 5},
 	}
 	s.WriteMsg(conn, 0x80, OrderPipelineLoginAns, addr)
 }
 
 // OrderPipelineHeartbeatAns
-// 0x82
-func (s *Server) OrderPipelineHeartbeatAns (conn *net.UDPConn, addr net.Addr, OrderPipelineHeartbeatReq *fsmohp.OrderPipelineHeartbeatReq) {
+// ----------------------------------------------------------------------------------
+// OHP 0x82
+// ----------------------------------------------------------------------------------
+func (s *Server) OrderPipelineHeartbeatAns(conn *net.UDPConn, addr net.Addr, OrderPipelineHeartbeatReq *fsmohp.OrderPipelineHeartbeatReq) {
 	heartbeatCtr := OrderPipelineHeartbeatReq.HeartbeatCtr
 	heartbeatCtr++
 	OrderPipelineHeartbeatAns := &fsmohp.OrderPipelineHeartbeatAns{
@@ -405,8 +454,10 @@ func (s *Server) OrderPipelineHeartbeatAns (conn *net.UDPConn, addr net.Addr, Or
 }
 
 // OrderPipelineRTpull
-// 0x84
-func (s *Server) OrderPipelineRTpull (conn *net.UDPConn, addr net.Addr, OrderPipelineRTpush *fsmohp.OrderPipelineRTpush){
+// ----------------------------------------------------------------------------------
+// OHP 0x84
+// ----------------------------------------------------------------------------------
+func (s *Server) OrderPipelineRTpull(conn *net.UDPConn, addr net.Addr, OrderPipelineRTpush *fsmohp.OrderPipelineRTpush) {
 	rTpushCtr := OrderPipelineRTpush.RTpushCtr
 	OrderPipelineRTpull := &fsmohp.OrderPipelineRTpull{
 		ID:        OrderPipelineRTpush.MeterID,
@@ -418,27 +469,32 @@ func (s *Server) OrderPipelineRTpull (conn *net.UDPConn, addr net.Addr, OrderPip
 	s.WriteMsg(conn, 0x84, OrderPipelineRTpull, addr)
 }
 
-// WriteHeartBeat Return heartBeat message
-func  (s *Server) WriteHeartBeat (conn *net.UDPConn,msgTypeCode uint, protoMsg proto.Message, addr net.Addr) {
-	s.HeartBeat(addr.String())
+// WriteHeartBeat
+// ----------------------------------------------------------------------------------
+// 发送心跳数据，初始化心跳数据
+// ----------------------------------------------------------------------------------
+func (s *Server) WriteHeartBeat(conn *net.UDPConn, msgTypeCode uint, protoMsg proto.Message, addr net.Addr) {
+	s.isHeartBeat(addr.String())
 	s.WriteMsg(conn, msgTypeCode, protoMsg, addr)
 }
 
-// HeartBeatCheck HeartBeat check
+// HeartBeatCheck
+// ----------------------------------------------------------------------------------
 // 心跳检测
-func (s *Server) HeartBeatCheck () {
-	for{
-		sleepTime := time.NewTimer(time.Duration(s.MaxTime)*time.Millisecond)
+// ----------------------------------------------------------------------------------
+func (s *Server) HeartBeatCheck() {
+	for {
+		sleepTime := time.NewTimer(time.Duration(s.MaxTime) * time.Millisecond)
 		select {
-		case <- sleepTime.C:
+		case <-sleepTime.C:
 			for _, v := range s.OnlineList {
 				nowTime := time.Now().UnixMilli()
-				if nowTime > int64(s.MaxTime) + v.LastTime {
+				if nowTime > int64(s.MaxTime)+v.LastTime {
 					if v.TimeOutNum == 2 {
 						fmt.Println("leave", v.Addr)
 						s.unConnectConn(v.Addr)
-					}else {
-						v.TimeOutNum ++
+					} else {
+						v.TimeOutNum++
 						v.LastTime = nowTime
 						fmt.Printf("this time out %d \n", v.TimeOutNum)
 					}
@@ -449,7 +505,9 @@ func (s *Server) HeartBeatCheck () {
 }
 
 // WriteMsg
+// ----------------------------------------------------------------------------------
 // 数据发送
+// ----------------------------------------------------------------------------------
 func (s *Server) WriteMsg(conn *net.UDPConn, msgTypeCode uint, protoMsg proto.Message, addr net.Addr) {
 	bytes, err := Utils.EnCodeByProto(msgTypeCode, protoMsg)
 	if err != nil {
@@ -462,7 +520,10 @@ func (s *Server) WriteMsg(conn *net.UDPConn, msgTypeCode uint, protoMsg proto.Me
 	}
 }
 
-// BuildUdpServer listen and build udp server
+// BuildUdpServer
+// ----------------------------------------------------------------------------------
+// 创建UDP，并开启监听模式
+// ----------------------------------------------------------------------------------
 func (s *Server) BuildUdpServer() (*net.UDPConn, error) {
 	conn, err := net.ListenUDP("udp", &net.UDPAddr{
 		IP:   s.Ip,
@@ -475,8 +536,7 @@ func (s *Server) BuildUdpServer() (*net.UDPConn, error) {
 }
 
 func testserver() {
-
-	UdpServer := NewServer(net.IPv4(0,0,0,0), 9000)
+	UdpServer := NewServer(net.IPv4(0, 0, 0, 0), 9000)
 	udpConn, err := UdpServer.BuildUdpServer()
 	if err != nil {
 		fmt.Printf("udp connect error : %s", err.Error())
@@ -484,7 +544,7 @@ func testserver() {
 	}
 	go UdpServer.HeartBeatCheck()
 	go UdpServer.ReadMsg(udpConn)
-	for{
+	for {
 
 	}
 }

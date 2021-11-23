@@ -227,12 +227,12 @@ message SysCtrlCmd {
 
 //VCI需求变化消息
 message GunDesire {
-	uint32 ID = 1;								//	主输出接触器编号
+	uint32 ID = 1;							//	主输出接触器编号
 	float VDemand = 2;						//	需求电压 
 	float IDemand = 3;						//	需求电流
 	float VPTPDemand = 4;					//	模块PTP开机电压 
 	float IPTPDemand = 5;					//	模块PTP开机电流
-	uint32  OutConnectorDemand = 6;	//	输出接触器期望状态（吸合/断开）
+	uint32  OutConnectorDemand = 6;			//	输出接触器期望状态（吸合/断开）
 }
 
 //PMM主线程通讯帧
@@ -241,10 +241,10 @@ message GunDesire {
 message PowerMatrixLogin {
 	uint32 MainContactorAmount = 1;			//	主输出接触器计数
 	uint32 MatrixContactorAmount = 2;		//	阵列接触器计数
-	uint32 ADModuleAmount = 3;					//	直流模块计数
+	uint32 ADModuleAmount = 3;				//	直流模块计数
 	SelfCheckType SelfCheckRul = 4;			//	功率矩阵模块自检状态
-	string PowerModuleProtoVersion = 5;	//	功率矩阵协议版本号
-	string PowerModuleVendor = 6;				//	功率矩阵模块版本号
+	string PowerModuleProtoVersion = 5;		//	功率矩阵协议版本号
+	string PowerModuleVendor = 6;			//	功率矩阵模块版本号
 }
 
 //功率矩阵注册信息帧.响应(0x80)

@@ -3,19 +3,20 @@ package database
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/go-redis/redis/v8"
 	"io/ioutil"
+
+	"github.com/go-redis/redis/v8"
 	"xorm.io/xorm"
 )
 
-var
-(
-	MySQL *xorm.Engine
-	Redis *redis.Client
-	err error
-	RedisPipe  redis.Pipeliner
+var (
+	MySQL     *xorm.Engine
+	Redis     *redis.Client
+	err       error
+	RedisPipe redis.Pipeliner
 )
-func init () {
+
+func init() {
 	MySQL, err = mysqlConnect()
 	if err != nil {
 		return
@@ -25,7 +26,11 @@ func init () {
 	RedisPipe = Redis.Pipeline()
 }
 
-func readFile(fs, name string) (interface{}, error) {
+// readFile
+// ------------------------------------------------------------------------------------
+// 从json文件读取配置信息
+// ------------------------------------------------------------------------------------
+func readFile(fs, name string) (map[string]interface{}, error) {
 	byte, err := ioutil.ReadFile(fs)
 	if err != nil {
 		fmt.Printf("this file %s open file, error info %s \n", fs, err.Error())
@@ -38,8 +43,8 @@ func readFile(fs, name string) (interface{}, error) {
 		return nil, err
 	}
 	if _, ok := dataMap[name]; ok {
-		return dataMap[name], nil
-	}else{
+		return dataMap[name].(map[string]interface{}), nil
+	} else {
 		return dataMap, nil
 	}
 }

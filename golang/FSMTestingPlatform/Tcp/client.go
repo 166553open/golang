@@ -1,19 +1,20 @@
 package tcp
 
 import (
-	"TestingPlatform/Utils"
+	"FSMTestingPlatform/Utils"
 	"fmt"
-	"github.com/golang/protobuf/proto"
 	"net"
 	"strconv"
 	"strings"
+
+	"github.com/golang/protobuf/proto"
 )
 
 type client struct {
 	conn net.Conn
 }
 
-func NewClient (addr string) (*client, error) {
+func NewClient(addr string) (*client, error) {
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
 		fmt.Printf("Client dial error : %s \n", err.Error())
@@ -22,9 +23,9 @@ func NewClient (addr string) (*client, error) {
 	return &client{conn: conn}, nil
 }
 
-func (c *client) ReadMsg () {
+func (c *client) ReadMsg() {
 	buff := make([]byte, 1024)
-	for{
+	for {
 		n, err := c.conn.Read(buff)
 		if n == 0 {
 			fmt.Println("client leave:", c.conn.RemoteAddr().String())
@@ -49,7 +50,7 @@ func (c *client) ReadMsg () {
 	}
 }
 
-func (c *client) WriteMsg (msgType uint, msg proto.Message) {
+func (c *client) WriteMsg(msgType uint, msg proto.Message) {
 	bytes, err := Utils.EnCodeByProto(msgType, msg)
 	if err != nil {
 		return

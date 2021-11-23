@@ -1,0 +1,500 @@
+syntax = "proto3";
+package gcu_fsm_vci.protobuf;
+//20211110 V0.7
+//20211116 V0.8
+
+// 全局命名规定："电流"使用 current ; 而 "当前" 使用 now 或 present
+option go_package="./Protoc/fsmvci";
+
+//本协议专用枚举及消息单体
+
+//枪头故障状态枚举
+enum FaultEnum {
+    DefaultFault = 0;
+    //BMS故障
+    gunShortCircuit = 0x01;            // 车辆输出短路故障
+    BMSCellVolOver =  0x02;            // 电池单体过压
+    BMSPackVolOver =  0x03;            // 电池包过压(预充时,电池包电压大于BCP最大允许电压)
+    BMSPackCurrOver =  0x04;           // 过流(输出电流 > BCP最大允许电流)
+    BMSCellTempOver =  0x05;           // 过温
+    BMSTempOutControl =  0x06;         // 热失控
+    BMSRelayAdhesion =  0x07;          // 车的继电器粘连
+
+    BMSOverCharge =  0x08;             // 过充保护
+    BMSAuxPowerAbnormal =  0x09;       // 辅助电源异常
+    BMSInnerRelayOpenCircuit =  0x0a;  // 继电器开路
+    BMSDemandCurrAbnormal =  0x0b;     // BMS需求电流大于最高允许电流
+    BMSDemandVolAbnormal =  0x0c;      // BMS需求电流大于最高允许电压
+    BMSBatVolAbnormal = 0x0d;          // 启动充电前输出接触器外侧电压大于50V
+
+    //Charger 故障
+    FSMOffline =  0x10;                // 消息中心离线
+    CC1VoltAbnormal =  0x11;           // CC1电压异常
+    gunStateAbnormal =  0x12;          // 控制导引异常
+    elockAbnormal =  0x13;             // 电子锁异常
+    gunReserveConnect =  0x14;         // 枪头反接
+    auxPowerAbnormal =  0x15;          // 辅助电源异常
+    insultVolHigh =  0x16;             // 绝缘检测电压高
+    insultVolLow = 0x17;               // 绝缘检测阶段模块电压低
+    insultWarn =  0x18;                // 绝缘检测告警
+    insultAbnormal =  0x19;            // 绝缘检测异常
+    disChgFail =  0x1a;                // 泄放失败
+    startTimeout = 0x1b;               // 启动超时
+    batAllowVolLow =  0x1c;            // BMS最高允许电压小于充电机最小输出电压
+    //预充
+    batVolHigh =  0x20;                // 电池电压大于充电机最大电压
+    batVolLow =  0x21;                 // 电池电压小于充电机最小电压
+    batVolDiffFromBCP = 0x22;          // 电池电压与BCP电压不一致
+    preChgVolHigh =  0x23;             // 预充阶段模块电压高
+    preChgVolLow =  0x24;              // 预充阶段模块电压低
+    //充电中
+    fuseBreakFault =  0x25;            // 熔断器故障
+    outOverCurr =  0x26;               // 输出过流
+    outOverVol = 0x27;                 // 充电电压大于电池包最大允许电压
+    meterCurrAbnormal = 0x28;          // 直流电表电流异常
+    meterVolAbnormal = 0x29;           // 直流电表电压异常
+    gunTempWarn =  0x2a;               // 枪头过温告警
+    gunOverTemp =  0x2b;               // 枪头过温故障
+    noActiveCurr =  0x2c;              // 无有效电流
+    SOCFull =  0x2d;                   // SOC满中止
+    chgForbidTimeout =  0x2e;          // 禁止充电超时
+    chgSysAbnormal =  0x2f;            // 充电机系统故障
+
+    BCSCurrDiff =  0x30;               // 输出电流与BCS报文电流不匹配
+    BCSVolDiff =  0x31;                // 输出电压与BCS报文电压不匹配
+    //结束充电
+    gunNotAtHome = 0x32;               // 充电枪归位告警
+    gunLifeWarn = 0x33;                // 枪插拔次数告警 
+
+    //GB27930协议
+    BMSProtoVerUnMatch =  0x40;        // BMS通信协议版本不匹配
+    BRMTimeout =  0x41;                // BRM 报文接收超时
+    BRMAbnormal =  0x42;               // BRM 报文数据项异常
+    BCPTimeout =  0x43;                // BCP 报文接收超时
+    BCPAbnormal =  0x44;               // BCP 报文数据项异常
+    BROTimeout =  0x45;                // BRO 报文(0x00)接收超时
+    BROaaTimeout =  0x46;              // BRO 报文(0xAA)接收超时
+    BCLTimeout =  0x47;                // BCL 报文接收超时
+    BCSTimeout =  0x48;                // BCS 报文接收超时
+    BSMCellVolLow =  0x49;             // BSM报文中单体动力蓄电池电压过低
+    BSMSocHigh =  0x4a;                // BSM报文中SOC过高
+    BSMSocLow =  0x4b;                 // BSM报文中SOC过低
+    BSMPackOverCurr =  0x4c;           // BSM报文中充电过流
+    BSMBatTempHigh =  0x4d;            // BSM报文中动力蓄电池温度过高
+    BSMInsultAbnormal =  0x4e;         // BSM报文中动力蓄电池绝缘状态异常
+    BSMContactorAbnormal =  0x4f;      // BSM报文中连接器连接状态异常
+
+    BSMCellVolHigh =  0x50;            // BSM报文中单体动力蓄电池电压过高
+    BSTTimeout =  0x51;                // BST报文接收超时
+    BSTMeetSOC =  0x52;                // BST报达到SOC目标值
+    BSTMeetVol =  0x53;                // BST报达到总电压设定值
+    BSTMeetCellvol =  0x54;            // BST报达到单体电压设定值
+    BSTInsultFault =  0x55;            // BST报BMS绝缘故障
+    BSTOutConnectorOverTemp =  0x56;   // BST报BMS输出连接器过温故障
+    BSTCommponentOverTemp =  0x57;     // BST报BMS元件、输出连接器
+    BSTChgConnectorAbnormal =  0x58;   // BST报BMS充电连接器故障
+    BSTBatOverTemp =  0x59;            // BST报BMS电池组温度过高故障
+    BSTHighVolRelayFault =  0x5a;      // BST报BMS高压继电器故障
+    BSTcc2Fault =  0x5b;               // BST报BMS检测点2电压检测故障
+    BSTOtherFault =  0x5c;             // BST报BMS其他故障
+    BSTOverCurr =  0x5d;               // BST报BMS电流过大
+    BSTVolAbnormal =  0x5e;            // BST报BMS电压异常
+    BSTNoReason =  0x5f;               // BST填充为0
+    BSDTimeout =  0x60;                // BSD报文超时
+}
+
+//终止原因枚举
+enum HaltReason {
+    DefaultReason = 0x00;           // 缺省值
+    NormalStop = 0x01;              // 正常停机
+    FaultStop = 0x02;               // 故障停机
+}
+
+//故障状态枚举
+enum FaultState {
+    DefaultState = 0x00;            // 缺省值
+    NormalState = 0x01;             // 故障恢复
+    FaultSustained = 0x02;          // 故障发生
+}
+
+//充电类型
+enum ChargingMode {
+    DefaultChargingMode = 0x00;     // 缺省值
+    VoltageStable = 0x01;           // 恒压充电
+    CurrentStable = 0x02;           // 恒流充电
+}
+
+//枪类型枚举
+enum GunTypeEnum {
+    DefaultType = 0x00;             // 缺省值
+    GBT11 = 0x01;                   // 新老兼容国标枪
+    GBT15 = 0x02;                   // 新国标枪
+    CCS = 0x03;                     // 欧标枪
+    Chaoji = 0x04;                  // 超级枪
+    Bow = 0x05;                     // 充电弓
+    SCD = 0x06;                     // 自动头
+}
+
+//BMS超时类型枚举
+enum BMSTimeoutEnum {
+    DefaultTimeout = 0x00;          // 缺省值
+    BHM = 0x01;                     // 超时报文
+    BRM = 0x02;                     // 超时报文
+    BCP = 0x03;                     // 超时报文
+    BRO_00 = 0x04;
+    BRO_AA = 0x05;
+    BCL = 0x06;                     // 超时报文
+    BCS = 0x07;                     // 超时报文
+    BSM = 0x08;                     // 超时报文
+    BST = 0x09;                     // 超时报文
+    BSD = 0x0A;                     // 超时报文
+}
+
+//自检状态描述枚举
+enum SelfCheckState {
+    DefaultCheck = 0x00;            // 缺省值
+    Standby = 0x1;                  // 已完成,状态可用
+    Checking = 0x2;                 // 自检中,稍后上报
+    CheckFault = 0x3;               // 自检失败,自愈中
+}
+
+//可用服务列表
+message EnableServer {
+    uint32 VCIServer = 1;           // VCI模块状态,0表示不可用,1表示可用
+    uint32 PMMServer = 2;           // PMM模块状态,0表示不可用,1表示可用
+    uint32 DMCServer = 3;           // DMC模块状态,0表示不可用,1表示可用
+    uint32 OHPServer = 4;           // OHP模块状态,0表示不可用,1表示可用
+    uint32 LCRServer = 5;           // LCR模块状态,0表示不可用,1表示可用
+}
+
+//VCI枪头配置信息
+message VCIGunPrameters {
+    uint32 gunID = 1;               // 当前描述枪头编号;与CAN总线编号一致(0~5)
+    uint32 auxType = 2;             // BMS辅源类型(12V/24V),0表示12v,1表示24v
+    uint32 eLockEnable = 3;         // 电子锁使能标志,0表示使能,1表示不使能
+    GunTypeEnum gunType = 4;        // 枪头类型
+    float currentLimited = 5;       // 枪头最大流点
+    float voltageLimited = 6;       // 枪头最大电压
+    float powerMax = 7;             // 系统最大功率
+}
+
+//系统参数信息
+message VCISysParameters {
+    float sysVolMax = 1;            // 系统(模块)最大输出电压
+    float sysCurMax = 2;            // 系统最大输出电流
+    float sysConstVolMinVol = 3;    // 系统(模块)恒压下最小输出电压
+    float sysConstCurMinVol = 4;    // 系统(模块)恒流下最小输出电压
+    float sysCurMin = 5;            // 模块最小输出电流
+}
+
+//VCI枪头连接阶段系统指令
+message SysCtrlConnectStage {
+    uint32 elockCmd = 1;            // 电子指令(0表示解锁,1表示上锁)
+    uint32 startCmd = 2;            // 开机指令(0表示关机,1表示开机)
+    uint32 startType = 3;           // 开机类型(0表示正常开机,1表示骗取VIN开机)
+}
+
+//VCI枪头充电阶段系统指令
+message SysCtrlCharging {
+    uint32 StopCmd = 1;             // 关机指令(0x55表示关机,其他无效)
+}
+
+//VCI枪头基础状态信息
+message GunBasicState {
+    uint32 gunID = 1;               // 当前描述枪头编号,与CAN总线编号一致(0~5)
+    uint32 LinkState = 2;           // 插枪状态,0表示空闲,1表示已插枪
+    uint32 positionedState = 3;     // 在位/归位状态,0表示未归位,1表示已归位
+}
+
+//VCI枪头连接阶段状态信息
+message GunConnectState {
+    uint32 auxDriver = 1;           // BMS辅助电源驱动
+    uint32 auxFeedback = 2;         // BMS辅助电源反馈
+    uint32 eLockDriver = 3;         // 电子锁驱动
+    uint32 eLockFeedback = 4;       // 电子锁反馈
+    float tempPositive = 5;         // 枪头正极温度
+    float tempNegative = 6;         // 枪头负极温度
+    BMSVinMsg bmsVINMsgMgr  = 7;    // 车辆VIN
+}
+//VIN-车辆主动上报
+message BMSVinMsg {
+    string batteryProducer = 1;     // 电池生产厂商
+    string bmsVIN = 2;              // 车辆VIN
+}
+//BmsShakehands-握手阶段BMS信息
+message BMSHandShake {
+    double bmsVolMaxAllowed = 1;    // 最高允许充电总电压
+    string GBTProtoVersion = 2;     // GBT27930协议版本号 
+}
+
+//BmsIdentify-辨识阶段BMS信息
+message BMSVerification {
+    uint32 batteryType = 1;           // 电池类型
+    uint32 batterySN = 2;             // 电池组序号
+    uint32 propertyRight = 3;         // 电池组产权标识
+    uint32 chargerVerifyResult = 4;   // 充电机辨识结果
+    uint32 chargerNo = 5;             // 充电桩编号
+    uint32 batterChargeCnt = 6;       // 电池组充电次数
+    float  capacityRated = 7;         // 整车动力蓄电池系统额定容量(AH)
+    float  voltageRated = 8;          // 整车动力蓄电池额定总电压
+    string batProductor = 9;          // 电池生产厂商名称
+    string batProduceDate = 10;       // 电池组生产日期
+    string bmsVersion = 11;           // BMS软件版本号
+    string bmsVIN = 12;               // BMS和车辆VIN
+    string chargerArea = 13;          // 充电机所在区域
+}
+
+//BmsConfig-参数配置阶段BMS信息
+message BMSConfig {
+    float monoVolMaxAllowed = 1;      // 单体动力蓄电池最高允许充电电压
+    float curAllowedMax = 2;          // 最高允许充电电流
+    float totalNominalEnergy = 3;     // 动力蓄电池标称总能量 
+    float volAllowedMax = 4;          // 最高允许充电总电压
+    float tempAllowedMax = 5;         // 最高允许温度
+    float startSOC = 6;               // 整车动力蓄电池荷电状态(SOC)
+    float volBatNow = 7;              // 整车动力蓄电池当前电池电压
+    float volChargerMax = 8;          // 充电机最高输出电压
+    float volChargerMin = 9;          // 充电机最低输出电压
+    float curChargerMax = 10;         // 充电机最大输出电流
+    float curChargerMin = 11;         // 充电机最小输出电流
+    uint32 bmsReady = 12;             // BMS就绪状态
+    uint32 chargerReady = 13;         // 充电机就绪状态
+}
+
+//BmsChargeFinish-充电结束阶段BMS信息
+message BMSChargingEnd {
+    float endSOC = 1;                 //  中止荷电状态SOC(%)
+    float monoBatVolMin = 2;          //  动力蓄电池单体最低电压
+    float monoBatVolMax = 3;          //  动力蓄电池单体最高电压
+    float batTempMin = 4;             //  动力蓄电池最低温度
+    float batTempMax = 5;             //  动力蓄电池最高温度
+    uint32 bmsStopReason = 6;         //  BMS中止充电原因
+    uint32 bmsFaultReason = 7;        //  BMS中止充电故障原因
+    uint32 bmsErrorReason = 8;        //  BMS中止充电错误原因
+    uint32 chargerStopReason = 9;     //  充电机中止充电原因
+    uint32 chargerFaultReason = 10;   //  充电机中止充电故障原因
+    uint32 chargerErrorReason = 11;   //  充电机中止充电错误原因
+}
+
+//BmsCharging-充电阶段BMS信息
+message BMSCharging {
+    ChargingMode chargeMode = 1;        // 充电模式(恒压充/恒流充)
+    uint32 HeatingMode = 2;             // 加热模式0：正常模式,1：充电加热模式,2：加热模式,3：保留
+    uint32 totalChgTime = 3;            // 充电总时间(分钟)
+    uint32 monoBatVolMaxCode = 4;       // 单体电池最高电压所在编号
+    uint32 timeRemain = 5;              // 估算剩余充电时间(分钟)
+    uint32 volMaxGroupNum = 6;          // 最高单体动力蓄电池电压所在组号
+    uint32 tempMaxCode = 7;             // 电池最高温度检测点编号
+    uint32 tempMinCode = 8;             // 电池最低温度检测点编号
+    uint32 monoBatVolMinCode = 9;       // 单体电池最低电压所在编号
+
+    uint32 monoBatVolOver = 10;         // 单体动力蓄电池电压是否过高
+    uint32 monoBatVolUnder = 11;        // 单体动力蓄电池电压是否过低
+    uint32 socOver = 12;                // 整车动力蓄电池荷电状态SOC是否过高
+    uint32 socUnder = 13;               // 整车动力蓄电池荷电状态SOC是否过低
+    uint32 batCurOver = 14;             // 动力蓄电池充电是否过电流
+    uint32 batTempOver = 15;            // 动力蓄电池温度是否过高
+    uint32 insulationAbnormal = 16;     // 动力蓄电池绝缘状态是否绝缘
+    uint32 outConnectedAbnormal = 17;   // 动力蓄电池输出连接器连接状态是否连接
+    uint32 bmsAllowchg = 18;            // BMS是否允许充电
+    uint32 chargerAllowchg = 19;        // 充电机是否允许充电
+
+    float volDemand = 20;               // 需求电压
+    float curDemand = 21;               // 需求电流
+    float volMeasured = 22;             // 充电电压测量值
+    float curMeasured = 23;             // 充电电流测量值
+    float monoBatVolMax = 24;           // 单体电池最高电压
+    float socNow = 25;                  // 当前SOC 
+    float monoBatVolMin = 26;           // 单体电池最低电压
+    float tempMax = 27;                 // 电池最高温度
+    float tempMin = 28;                 // 电池最低温度
+
+}
+//BMS 超时阶段报文
+message BMSTimeout {
+  uint32 bmsErrorFrame = 1;        // BMS错误报文 
+  uint32 chargerErrorFrame = 2;    // 充电机错误报文
+}
+
+// BMS重连事件
+message BMSReConnectEvent {
+    uint32 timeOutState = 1;               // 超时事件(ACK 发生/NACK 未发生)
+    BMSTimeoutEnum bmsTimeoutType = 2;     // 超时类型(BHM/BRM/BCP/BCS/BCL/BST/BSD)
+    uint32 reconnectCnt = 3;               // 超时次数
+    uint32 nextState = 4;                  // 下一个重连状态 
+}
+
+//需求上传信息
+message GunApplyInfo {
+    float voltageApplied = 1;        // 需求电压 
+    float currentApplied = 2;        // 需求电流
+    float voltagePTP = 3;            // 模块PTP开机电压 
+    float currentPTP = 4;            // 模块PTP开机电流
+    uint32 connectorApplied = 5;     // 输出接触器期望状态(吸合/断开)
+}
+
+//停机上传信息
+message GunHalt {
+    uint32 stopState = 1;            // 中止状态(ACK 中止,NACK未中止)
+    HaltReason haltType = 2;         // 终止原因
+    FaultEnum faultcode = 3;         // 中止码 
+}
+
+//关注信息
+message GunCaredInfo {
+    uint32  allocaOK = 1;               // 是否分配到模块 
+    uint32  outConnectorFb = 2;         // 输出接触器反馈状态(吸合/断开)
+    float   meterVoltage = 3;           // 电表电压 
+    float   meterCurrent = 4;           // 电表电流
+    float   batVoltage = 5;             // 输出接触器后级电压 
+    float   modVoltage = 6;             // 输出接触器前级电压
+    double  meterEnergy = 7;            // 电表正向电量 
+}
+
+//充电线程故障上报
+message ChargerFaultState {
+    FaultEnum faultType = 1;        // 故障名称枚举值
+    FaultState faultState = 2;      // 故障状态
+    uint64 faultRaiseTime = 3;      // 故障发生时间
+    uint64 faultDownTime = 4;       // 故障恢复时间
+}
+
+//充电线程恢复数据
+message ChargerRevive {
+    uint32  isCharging = 1;          // 充电机状态(开机/关机)(Daniel 1004)
+    uint32  isVINStart = 2;          // 是否是VIN启机 (Daniel 1004)
+    uint32 chargerID = 3;            // 当前描述枪头编号,与CAN总线编号一致(0~5)
+
+    uint32 faultState1 = 4;          // 故障列表1 与枪故障状态按位一一对应
+    uint32 faultState2 = 5;          // 故障列表2
+    uint32 faultState3 = 6;          // 故障列表3
+    
+    uint32 bmsCommState = 7;         // BMS交互状态
+    uint32 bmsRecvState = 8;         // 接收BMS报文状态
+    uint32 bmsType = 9;              // BMS类型(实车/模拟器)
+    uint32 bmsTimeoutCnt = 10;       // BMS超时次数
+    
+    uint32 elockState = 11;          // 电子锁状态(开/关)
+    uint32 auxPowerState = 12;       // BMS辅源状态(开/关)
+    uint32 insultState = 13;         // 绝缘检测状态
+    uint32 insultResult = 14;        // 绝缘检测结果(Pass/Warn/Fail)
+    
+    float bmsCurrentMax = 15;        // BMS最大允许充电电流
+    float bmsVoltageMax = 16;        // BMS最大允许充电电压
+    float cellVoltageMax = 17;       // 单体允许最大电压
+    float cellTempMax = 18;          // 单体允许最大温度
+    float insultVoltage = 19;        // 绝缘检测电压
+}
+
+//Main线程通讯帧
+
+//VCI主线程注册信息帧(0x00)
+message VCIManagerRegisterInfo {
+    SelfCheckState selfCheckResult = 1;    // 车桩交互模块自检状态
+    string protocolVer = 2;                // 车桩交互协议版本号
+    string editionNumber = 3;              // 车桩交互模块版本号
+}
+
+//VCI主线程注册信息帧.响应(0x80)
+message VCIManagerRegisterReponse {
+    uint32 gunAmount = 1;                                    //枪头总计数
+    uint32 reVCIGunPrametersListLong = 2;
+    uint32 reVCISysParameterListLong = 3;
+    uint32 reChargerReviveListLong = 4;
+    SelfCheckState reSelfCheckResult = 5;                    //主状态机模块自检状态
+    EnableServer reEnableServer = 6;                         //主状态机可用服务列表
+    string reProtocolVer = 7;                                //车桩交互协议版本号
+    string reFSMEditionNumber = 8;                           //主状态机模块版本号
+    repeated VCIGunPrameters reVCIGunPrametersList = 9;      //车桩交互模块当前配置
+    repeated VCISysParameters reVCISysParameterList = 10;    //系统参数配置
+    repeated ChargerRevive reChargerReviveList = 11;         //充电线程复活数据
+}
+
+//VCI主线程心跳周期信息帧(0x02)
+message VCIManagerHeartBeatInfo {
+    uint32 heartBeatCnt = 1;                         // 心跳计数
+    uint32 heartBeatPeriod = 2;                      // 心跳信息间隔(毫秒)
+    uint32 gunBasicStateListLong = 3;
+    uint32 connectStateListLong = 4;
+    uint64 timeNow = 5;                              // 心跳时间戳
+    repeated GunBasicState gunBasicStateList = 6;    // 枪头基础状态信息队列
+    repeated GunConnectState ConnectStateList = 7;   // 枪头链接阶段控制命令
+}
+
+//VCI主线程心跳周期信息帧.响应(0x82)
+message VCIManagerHeartBeatReponse {
+    uint32 reHeartbeatCnt = 1;                                  // 心跳计数
+    uint32 reHeartBeatPeriod = 2;                               // 心跳信息间隔(毫秒)
+    uint32 reVCIGunPrametersListLong = 3;
+    uint32 reVCISysParametersListLong = 4;
+    uint32 reSysCtrlStateLong = 5;
+    uint64 reTimeNow = 6;                                       // 心跳时间戳
+    repeated VCIGunPrameters reVCIGunParametersList = 7;        // 车桩交互模块更新配置
+    repeated VCISysParameters reVCISysParametersList =8;        // 系统参数更新配置
+    repeated SysCtrlConnectStage reSysCtrlState = 9;            // 枪头链接阶段控制命令(repeat 消息 Daniel1004)
+}
+
+//充电线程(charging)通讯帧
+//VCI充电线程注册信息帧(0x01)
+message VCIChargerRegisterInfo {
+    uint32 register = 1;                              // Charger 注册邀约
+    uint32 registerPort = 2;                          // Charger 注册端口
+    uint64 registerTime = 3;                          // Charger 注册邀约时间
+}
+
+//VCI充电线程注册信息帧.响应(0x81)
+message VCIChargerRegisterResponse {
+    uint32 reConfirm = 1;                             // Charger 注册邀约应答确认
+    uint32 rePort = 2;                                // Charger 注册端口确认
+    uint64 reTime = 3;                                // Charger 注册邀约确认时间
+}
+
+//充电线程心跳周期信息帧(0x06)
+message VCIChargerHeartBeatInfo {
+    uint32 chargingID = 1;                         // 当前描述枪头编号,与CAN总线编号一致(0~5)
+    uint32 heartbeatCnt = 2;                       // 心跳计数
+    uint32 heartBeatPeriod = 3;                    // 心跳信息间隔(毫秒)
+    uint32 faultListLong = 4;
+    uint64 timeNow = 5;                            // 心跳时间戳
+    BMSHandShake gunHandShake = 6;                 // 枪头充电阶段状态信息
+    BMSVerification gunVerifier = 7;               // 枪头充电阶段状态信息
+    BMSConfig gunBMSconfig = 8;                    // 枪头充电阶段状态信息
+    BMSCharging gunCharging = 9;
+    BMSTimeout  gunTimeout = 10;                   // 枪头充电阶段状态信息
+    BMSChargingEnd gunChargingEnd = 11;
+    BMSReConnectEvent reConnect = 12;              // BMS重连事件
+    ChargerRevive chargingReviveMsg = 13;          // 恢复消息体
+    repeated ChargerFaultState faultList = 14;     // 故障列表
+}
+
+//充电线程心跳周期信息帧.响应(0x86)
+message VCIChargerHeartBeatResponse {
+    uint32 reChargingID = 1;                  // 当前描述枪头编号,与CAN总线编号一致(0~5)
+    uint32 reHeartBeatCnt = 2;                // 心跳计数
+    uint32 reHeartBeatPeriod = 3;             // 心跳信息间隔(毫秒)
+    uint64 reTimeNow = 4;                     // 心跳时间戳
+    GunCaredInfo reGunCaredMsg = 5;           // 枪头充电阶段关注状态
+}
+//充电线程realtimepush
+//充电线程突发上传信息帧(0x08)
+message VCIChargerRTInfo {
+    uint32 chargerID = 1;                      // 当前描述枪头编号,与CAN总线编号一致(0~5)
+    uint32 pushCnt = 2;                        // 推送计数
+    uint32 rtPeriod = 3;                       // 反馈超时预期(毫秒)
+    uint32 faultListLong = 4;
+    GunApplyInfo applyMsg = 5;                 // 枪头充电阶段状态信息
+    BMSReConnectEvent connectEvent = 6;        // BMS重连事件
+    repeated ChargerFaultState faultList = 7;  // 故障列表
+}
+
+//充电线程realtimepull
+//充电线程突发接收信息帧(0x88)
+message VCIChargerRTRsponse {
+    uint32 echoChargerID = 1;                            // 当前描述枪头编号,与CAN总线编号一致(0~5)
+    uint32 echoPushCnt = 2;                              // 推送计数
+    uint32 echoRtPeriod = 3;                             // 反馈超时预期(毫秒)
+    uint32 echoFaultListLong = 4;
+    GunCaredInfo haltMsg = 5;                            // 枪头充电阶段状态信息
+    SysCtrlCharging echoSysCtrl = 6;                     // 枪头充电阶段控制命令
+    repeated ChargerFaultState echoFaultList = 7;        // 故障列表
+}
